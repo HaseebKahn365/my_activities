@@ -2,8 +2,8 @@ import 'package:duration_picker/duration_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:jiffy/jiffy.dart';
-import 'package:my_activities/providers/active_activities.dart';
 import 'package:my_activities/providers/providers.dart';
+import 'package:my_activities/screens/active_activities.dart';
 
 class AddActivityScreen extends StatefulWidget {
   const AddActivityScreen({super.key});

@@ -267,7 +267,7 @@ class _ActivityCardState extends State<ActivityCard> with SingleTickerProviderSt
 
     return Card(
       elevation: 4,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         children: [
           ClipRRect(
