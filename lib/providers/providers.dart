@@ -185,4 +185,18 @@ class DatabaseActivities extends ChangeNotifier {
     final List<Map<String, dynamic>> maps = await db.query('activities');
     log(maps.toString());
   }
+
+  //delete all activities by group title
+  Future<void> deleteActivitiesByGroupTitle(String groupTitle) async {
+    log('Deleting activities with group title: $groupTitle');
+    final db = await database;
+    await db.delete(
+      'activities',
+      where: 'groupTitle = ?',
+      whereArgs: [groupTitle],
+    );
+
+    activities.removeWhere((a) => a.groupTitle == groupTitle);
+    notifyListeners();
+  }
 }

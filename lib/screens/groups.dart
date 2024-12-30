@@ -12,6 +12,7 @@ we will also display the most recent 3 activities of this group
 import 'package:flutter/material.dart';
 import 'package:jiffy/jiffy.dart';
 import 'package:my_activities/providers/providers.dart';
+import 'package:provider/provider.dart';
 
 class DoneActivityCard extends StatelessWidget {
   final String groupTitle;
@@ -93,38 +94,43 @@ class DoneActivitiesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Step 1: Sort activities by finishTime
-    final sortedActivities = List<DoneActivity>.from(databaseActivitiesProvider.activities)..sort((a, b) => b.finishTime.compareTo(a.finishTime));
-
-    // Step 2: Group activities by groupTitle
-    final groupedActivities = <String, List<DoneActivity>>{};
-    for (final activity in sortedActivities) {
-      groupedActivities.putIfAbsent(activity.groupTitle, () => []).add(activity);
-    }
-
-    // Step 3: Build cards for each group
-    final groupCards = groupedActivities.entries.map((entry) {
-      final groupTitle = entry.key.isEmpty ? 'Extra' : entry.key;
-      final activities = entry.value;
-      final recentActivities = activities.take(3).toList(); // Most recent 3 activities
-      return GestureDetector(
-        child: DoneActivityCard(
-          groupTitle: groupTitle,
-          activityCount: activities.length,
-          recentActivities: recentActivities,
-        ),
-        onTap: () {
-          // Navigate to the group details screen using material routing
-          Navigator.of(context).push(MaterialPageRoute(
-            builder: (context) => GroupDetailsScreen(groupTitle: groupTitle, activities: activities),
-          ));
-        },
-      );
-    }).toList();
 
     return Scaffold(
-      body: ListView(
-        padding: const EdgeInsets.all(8),
-        children: groupCards,
+      body: Consumer<DatabaseActivities>(
+        builder: (context, databaseActivitiesProvider, child) {
+          final sortedActivities = List<DoneActivity>.from(databaseActivitiesProvider.activities)..sort((a, b) => b.finishTime.compareTo(a.finishTime));
+
+          // Step 2: Group activities by groupTitle
+          final groupedActivities = <String, List<DoneActivity>>{};
+          for (final activity in sortedActivities) {
+            groupedActivities.putIfAbsent(activity.groupTitle, () => []).add(activity);
+          }
+
+          // Step 3: Build cards for each group
+          final groupCards = groupedActivities.entries.map((entry) {
+            final groupTitle = entry.key.isEmpty ? 'Extra' : entry.key;
+            final activities = entry.value;
+            final recentActivities = activities.take(3).toList(); // Most recent 3 activities
+            return GestureDetector(
+              child: DoneActivityCard(
+                groupTitle: groupTitle,
+                activityCount: activities.length,
+                recentActivities: recentActivities,
+              ),
+              onTap: () {
+                // Navigate to the group details screen using material routing
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (context) => GroupDetailsScreen(groupTitle: groupTitle, activities: activities),
+                ));
+              },
+            );
+          }).toList();
+
+          return ListView(
+            padding: const EdgeInsets.all(8),
+            children: groupCards,
+          );
+        },
       ),
     );
   }
@@ -150,24 +156,54 @@ class GroupDetailsScreen extends StatelessWidget {
       body: Column(
         children: [
           const SizedBox(height: 48),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Total Activities: ${activities.length}',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                Text(
-                  'Last Updated: ${Jiffy.parse(activities.first.finishTime.toString()).fromNow()}',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
+          GestureDetector(
+            onLongPress: () {
+              //show a dialog to delete all activities in this group
+              showDialog(
+                context: context,
+                builder: (context) {
+                  return AlertDialog(
+                    title: const Text('Delete all activities?'),
+                    content: const Text('This action cannot be undone.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () async {
+                          //delete all activities in this group
+                          await databaseActivitiesProvider.deleteActivitiesByGroupTitle(groupTitle);
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text('Delete'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text('Cancel'),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Total Activities: ${activities.length}',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  Text(
+                    'Last Updated: ${Jiffy.parse(activities.first.finishTime.toString()).fromNow()}',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 8),
