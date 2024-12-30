@@ -190,6 +190,7 @@ class _ActivityCardState extends State<ActivityCard> with SingleTickerProviderSt
   late AnimationController _progressController;
   late Animation<double> _progressAnimation;
   double _targetProgress = 0.0;
+  final int neeww = 32;
 
   @override
   void initState() {
