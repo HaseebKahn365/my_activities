@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await sharedPrefActivitiesProvider.loadActivities();
+  await databaseActivitiesProvider.loadFromDb();
   runApp(const MyApp());
 }
 
