@@ -257,8 +257,16 @@ class _ActivityCardState extends State<ActivityCard> with SingleTickerProviderSt
     final timeLeft = widget.activity.estimatedEndTime.difference(DateTime.now());
 
     return Card(
-      elevation: 4,
+      elevation: 0,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      //add a thin border to the card
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(5),
+        side: BorderSide(
+          color: colorScheme.primary.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
       child: Column(
         children: [
           ClipRRect(

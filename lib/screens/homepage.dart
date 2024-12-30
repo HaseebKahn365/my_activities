@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:my_activities/screens/active_activities.dart';
+import 'package:my_activities/screens/groups.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -38,7 +39,7 @@ class _MyHomePageState extends State<MyHomePage> {
       case 0:
         return const ActiveActivitiesScreen();
       case 1:
-        return const Text('Groups');
+        return const DoneActivitiesScreen();
       case 2:
         return const Text('Summary');
       default:
