@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
-import 'package:my_activities/providers/add_activity.dart';
 import 'package:my_activities/providers/providers.dart';
+import 'package:my_activities/screens/add_activity.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
