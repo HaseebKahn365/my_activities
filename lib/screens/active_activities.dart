@@ -7,8 +7,6 @@ import 'package:my_activities/screens/add_activity.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum Category { w, s, m, l }
-
 class ActiveActivity {
   final String title;
   final String groupTitle;
@@ -96,24 +94,6 @@ class SharedPrefActivities extends ChangeNotifier {
   }
 }
 
-class DoneActivity {
-  final String title;
-  final String groupTitle;
-  final DateTime startTime;
-  final DateTime estimatedEndTime;
-  final DateTime finishTime;
-  final Category category;
-
-  DoneActivity({
-    required this.title,
-    required this.groupTitle,
-    required this.startTime,
-    required this.estimatedEndTime,
-    required this.finishTime,
-    required this.category,
-  });
-}
-
 class ActiveActivitiesScreen extends StatelessWidget {
   const ActiveActivitiesScreen({super.key});
 
@@ -142,10 +122,21 @@ class ActiveActivitiesScreen extends StatelessWidget {
                     return ActivityCard(
                       activity: activity,
                       onRemove: () => provider.removeActivity(activity),
-                      onDone: (doneActivity) {
+                      onDone: (doneActivity) async {
                         // Handle the done activity (e.g., save to a different provider)
-                        provider.removeActivity(activity);
+                        DoneActivity doneActivity = DoneActivity(
+                          title: activity.title,
+                          groupTitle: activity.groupTitle,
+                          startTime: activity.startTime,
+                          estimatedEndTime: activity.estimatedEndTime,
+                          finishTime: DateTime.now(),
+                          category: activity.category,
+                        );
+                        await databaseActivitiesProvider.doneActivity(
+                          doneActivity,
+                        );
                         // You might want to add this to a DoneActivities provider
+                        provider.removeActivity(activity);
                       },
                     );
                   },

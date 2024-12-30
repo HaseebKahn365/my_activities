@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:my_activities/providers/active_activities.dart';
+import 'package:my_activities/screens/active_activities.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
