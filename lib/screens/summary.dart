@@ -407,14 +407,14 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
     Widget buildHeaderCell(String text) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(19),
           color: themeProvider.themeData.colorScheme.primary.withOpacity(0.1),
         ),
         child: Text(
           text,
           style: TextStyle(
-            // fontWeight: FontWeight.bold,
             color: themeProvider.themeData.colorScheme.primary,
           ),
         ),
@@ -422,77 +422,88 @@ class _SummaryScreenState extends State<SummaryScreen> {
     }
 
     Widget buildDataCell(String text, {bool isHighlight = false}) {
-      return Text(
-        text,
-        textAlign: TextAlign.center,
+      return SizedBox(
+        width: double.infinity, // Ensures the container takes full width
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+        ),
       );
     }
 
     return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(5),
+        side: BorderSide(
+          color: themeProvider.themeData.colorScheme.primary.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
       elevation: 0,
       margin: const EdgeInsets.all(8.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-          ),
-          Center(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingRowHeight: 40,
-                dataRowMaxHeight: 56,
-                columnSpacing: 6,
-                columns: [
-                  DataColumn(label: Center(child: buildHeaderCell('Period'))),
-                  DataColumn(label: Center(child: buildHeaderCell('Tasks'))),
-                  DataColumn(label: Center(child: buildHeaderCell('Delayed'))),
-                  DataColumn(label: Center(child: buildHeaderCell('Nailed'))),
-                ],
-                rows: [
-                  DataRow(cells: [
-                    DataCell(Center(child: buildDataCell('Today', isHighlight: true))),
-                    DataCell(Center(child: buildDataCell(dayStats['total'].toString(), isHighlight: true))),
-                    DataCell(Center(child: buildDataCell(dayStats['delayed'].toString(), isHighlight: true))),
-                    DataCell(Center(child: buildDataCell(dayStats['ahead'].toString(), isHighlight: true))),
-                  ]),
-                  DataRow(cells: [
-                    DataCell(Center(child: buildDataCell('This Week'))),
-                    DataCell(Center(child: buildDataCell(weekStats['total'].toString()))),
-                    DataCell(Center(child: buildDataCell(weekStats['delayed'].toString()))),
-                    DataCell(Center(child: buildDataCell(weekStats['ahead'].toString()))),
-                  ]),
-                  DataRow(cells: [
-                    DataCell(Center(child: buildDataCell('This Month'))),
-                    DataCell(Center(child: buildDataCell(monthStats['total'].toString()))),
-                    DataCell(Center(child: buildDataCell(monthStats['delayed'].toString()))),
-                    DataCell(Center(child: buildDataCell(monthStats['ahead'].toString()))),
-                  ]),
-                ],
+          const SizedBox(height: 16),
+          DataTable(
+            headingRowHeight: 40,
+            dataRowMaxHeight: 56,
+            columnSpacing: 16, // Reduced spacing between columns
+            horizontalMargin: 16, // Reduced horizontal margin
+            columns: [
+              DataColumn(
+                label: buildHeaderCell('Period'),
               ),
-            ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Icon(Icons.schedule, color: theme.primary, size: 20),
-              const SizedBox(width: 8),
-              const Text(
-                'Today: ',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
+              DataColumn(
+                label: buildHeaderCell('Tasks'),
               ),
-              Text(
-                '${calculateDayScheduleAdherence().toStringAsFixed(0)} mins (${(calculateDayScheduleAdherence() / 60).toStringAsFixed(1)} hours)',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
+              DataColumn(
+                label: buildHeaderCell('Delayed'),
+              ),
+              DataColumn(
+                label: buildHeaderCell('Nailed'),
               ),
             ],
+            rows: [
+              DataRow(cells: [
+                DataCell(buildDataCell('Today', isHighlight: true)),
+                DataCell(buildDataCell(dayStats['total'].toString(), isHighlight: true)),
+                DataCell(buildDataCell(dayStats['delayed'].toString(), isHighlight: true)),
+                DataCell(buildDataCell(dayStats['ahead'].toString(), isHighlight: true)),
+              ]),
+              DataRow(cells: [
+                DataCell(buildDataCell('Week')),
+                DataCell(buildDataCell(weekStats['total'].toString())),
+                DataCell(buildDataCell(weekStats['delayed'].toString())),
+                DataCell(buildDataCell(weekStats['ahead'].toString())),
+              ]),
+              DataRow(cells: [
+                DataCell(buildDataCell('Month')),
+                DataCell(buildDataCell(monthStats['total'].toString())),
+                DataCell(buildDataCell(monthStats['delayed'].toString())),
+                DataCell(buildDataCell(monthStats['ahead'].toString())),
+              ]),
+            ],
           ),
-          const SizedBox(height: 16.0),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'Today: ',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  '${calculateDayScheduleAdherence().toStringAsFixed(0)} mins (${(calculateDayScheduleAdherence() / 60).toStringAsFixed(1)} hours)',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -511,15 +522,16 @@ class _SummaryScreenState extends State<SummaryScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12.0),
           child: ListView(
             children: [
+              const SizedBox(height: 16.0),
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Wrap(
                   spacing: 8.0,
                   children: [
-                    'Today',
-                    'This Week',
-                    'This Month',
-                    'This Year',
+                    'Now',
+                    'Week',
+                    'Month',
+                    'Year',
                     'All Time',
                   ]
                       .map((range) => InputChip(
@@ -532,6 +544,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
               ),
               const SizedBox(height: 10.0),
               Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(5),
+                  side: BorderSide(
+                    color: themeProvider.themeData.colorScheme.primary.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
                 elevation: 0,
                 margin: const EdgeInsets.all(8.0),
                 child: Column(
@@ -550,6 +569,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
               ),
               const SizedBox(height: 10.0),
               Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(5),
+                  side: BorderSide(
+                    color: themeProvider.themeData.colorScheme.primary.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
                 elevation: 0,
                 margin: const EdgeInsets.all(8.0),
                 child: Column(
@@ -568,6 +594,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
               ),
               const SizedBox(height: 10.0),
               Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(5),
+                  side: BorderSide(
+                    color: themeProvider.themeData.colorScheme.primary.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
                 elevation: 0,
                 margin: const EdgeInsets.all(8.0),
                 child: Column(
