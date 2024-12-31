@@ -35,6 +35,8 @@ import 'dart:developer';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:my_activities/providers/providers.dart';
+import 'package:my_activities/screens/homepage.dart';
+import 'package:provider/provider.dart';
 
 class SummaryScreen extends StatefulWidget {
   const SummaryScreen({super.key});
@@ -102,6 +104,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
+
                 reservedSize: 40, // Increased reserved size for labels
                 getTitlesWidget: (value, meta) {
                   if (value >= 0 && value < topActivities.length) {
@@ -117,6 +120,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       ),
                     );
                   }
+
                   return const SizedBox.shrink();
                 },
               ),
@@ -134,10 +138,22 @@ class _SummaryScreenState extends State<SummaryScreen> {
               barRods: [
                 BarChartRodData(
                   toY: getActivityDuration(topActivities[index]),
-                  color: Colors.blue,
+                  color: themeProvider.themeData.colorScheme.primary,
                   width: 20,
                 ),
               ],
+            ),
+          ),
+          barTouchData: BarTouchData(
+            touchTooltipData: BarTouchTooltipData(
+              getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                final activity = topActivities[group.x.toInt()];
+                return BarTooltipItem(
+                  '${activity.title}\n${getActivityDuration(activity).toStringAsFixed(0)}m',
+                  const TextStyle(),
+                );
+              },
+              tooltipRoundedRadius: 8,
             ),
           ),
         ),
@@ -158,16 +174,18 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
     // Take top 7 groups
     final topGroups = sortedGroups.take(7).toList();
+    log('BUIDLING THE CHART');
 
     // Generate colors
+    final colorScheme = themeProvider.themeData.colorScheme;
     final colors = [
-      Colors.blue,
-      Colors.red,
-      Colors.green,
-      Colors.yellow,
-      Colors.purple,
-      Colors.orange,
-      Colors.teal,
+      colorScheme.primary.withOpacity(0.5),
+      colorScheme.secondary,
+      colorScheme.tertiary,
+      colorScheme.error,
+      colorScheme.primaryContainer,
+      colorScheme.secondaryContainer,
+      colorScheme.tertiaryContainer,
     ];
 
     return Container(
@@ -183,7 +201,9 @@ class _SummaryScreenState extends State<SummaryScreen> {
                 title: '${topGroups[index].key}\n${topGroups[index].value.toStringAsFixed(0)}m',
                 color: colors[index % colors.length],
                 radius: 100,
-                titleStyle: const TextStyle(fontSize: 12, color: Colors.white),
+                titleStyle: const TextStyle(
+                  fontSize: 12,
+                ),
               ),
             ),
           ),
@@ -193,7 +213,6 @@ class _SummaryScreenState extends State<SummaryScreen> {
   }
 
   Widget buildLineChart(List<DoneActivity> activities) {
-    // Group activities by groupTitle and calculate time variance
     final groupVariances = <String, List<double>>{};
     final timePoints = List.generate(7, (index) => index.toDouble());
 
@@ -202,57 +221,139 @@ class _SummaryScreenState extends State<SummaryScreen> {
       groupVariances.putIfAbsent(group, () => []).add(getTimeVariance(activity));
     }
 
-    // Generate line data for each group
+    final colorScheme = themeProvider.themeData.colorScheme;
     final colors = [
-      Colors.blue,
-      Colors.red,
-      Colors.green,
-      Colors.yellow,
-      Colors.purple,
-      Colors.orange,
-      Colors.teal,
+      colorScheme.primary,
+      colorScheme.secondary,
+      colorScheme.tertiary,
+      colorScheme.error,
+      colorScheme.primaryContainer,
+      colorScheme.secondaryContainer,
+      colorScheme.tertiaryContainer,
     ];
 
-    return AspectRatio(
-      aspectRatio: 1.5,
-      child: LineChart(
-        LineChartData(
-          lineBarsData: groupVariances.entries.map((entry) {
-            final groupIndex = groupVariances.keys.toList().indexOf(entry.key);
-            return LineChartBarData(
-              spots: List.generate(
-                entry.value.length,
-                (index) => FlSpot(timePoints[index], entry.value[index]),
-              ),
-              color: colors[groupIndex % colors.length],
-              dotData: const FlDotData(show: true),
-            );
-          }).toList(),
-          titlesData: FlTitlesData(
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                reservedSize: 50,
-                showTitles: true,
-                getTitlesWidget: (value, meta) {
-                  if (value >= 0 && value < activities.length) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                      child: SizedBox(
-                        width: 50, // Adjust width to fit the space better
-                        child: RotatedBox(
-                          quarterTurns: -1, // Rotate the label for better visibility
-                          child: Text(
-                            activities[value.toInt()].title.length > 10 ? "${activities[value.toInt()].title.substring(0, 7)}..." : activities[value.toInt()].title,
-                            style: const TextStyle(fontSize: 8), // Reduced font size
-                            textAlign: TextAlign.center,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: AspectRatio(
+        aspectRatio: 1.5,
+        child: LineChart(
+          LineChartData(
+            lineBarsData: groupVariances.entries.map((entry) {
+              final groupIndex = groupVariances.keys.toList().indexOf(entry.key);
+              final color = colors[groupIndex % colors.length];
+              return LineChartBarData(
+                spots: List.generate(
+                  entry.value.length,
+                  (index) => FlSpot(timePoints[index], entry.value[index]),
+                ),
+                color: color,
+                dotData: FlDotData(
+                  show: true,
+                  getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+                    radius: 4,
+                    color: color,
+                    strokeWidth: 2,
+                    strokeColor: colorScheme.surface,
+                  ),
+                ),
+                belowBarData: BarAreaData(
+                  show: true,
+                  color: color.withOpacity(0.1),
+                ),
+              );
+            }).toList(),
+            titlesData: FlTitlesData(
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  reservedSize: 50,
+                  showTitles: true,
+                  getTitlesWidget: (value, meta) {
+                    if (value >= 0 && value < activities.length) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: SizedBox(
+                          child: RotatedBox(
+                            quarterTurns: -1,
+                            child: Text(
+                              activities[value.toInt()].title.length > 10 ? "${activities[value.toInt()].title.substring(0, 7)}..." : activities[value.toInt()].title,
+                              style: TextStyle(
+                                fontSize: 8,
+                                color: colorScheme.onSurface.withOpacity(0.8),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
                         ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
+              leftTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 30,
+                  getTitlesWidget: (value, meta) {
+                    return Text(
+                      value.toInt().toString(),
+                      style: TextStyle(
+                        color: colorScheme.onSurface.withOpacity(0.8),
+                        fontSize: 10,
                       ),
                     );
-                  }
-                  return const SizedBox.shrink();
+                  },
+                ),
+              ),
+              rightTitles: const AxisTitles(
+                sideTitles: SideTitles(showTitles: false),
+              ),
+              topTitles: const AxisTitles(
+                sideTitles: SideTitles(showTitles: false),
+              ),
+            ),
+            gridData: FlGridData(
+              drawVerticalLine: false,
+              drawHorizontalLine: true,
+              horizontalInterval: 5, // Increased interval for less cluttered grid
+              checkToShowHorizontalLine: (value) => value % 5 == 0, // Only show lines at intervals of 5
+              getDrawingHorizontalLine: (value) {
+                return FlLine(
+                  color: value == 0 ? colorScheme.outline : colorScheme.outline.withOpacity(0.2),
+                  strokeWidth: value == 0 ? 1.5 : 0.5,
+                  dashArray: value == 0 ? null : [5, 5],
+                );
+              },
+            ),
+            borderData: FlBorderData(show: false),
+            lineTouchData: LineTouchData(
+              touchTooltipData: LineTouchTooltipData(
+                tooltipRoundedRadius: 8,
+                tooltipBorder: BorderSide(
+                  color: colorScheme.outline.withOpacity(0.2),
+                  width: 1,
+                ),
+                tooltipPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                getTooltipItems: (touchedSpots) {
+                  return touchedSpots.map((spot) {
+                    final groupIndex = spot.barIndex;
+                    final groupName = groupVariances.keys.toList()[groupIndex];
+                    return LineTooltipItem(
+                      '$groupName\n${spot.y.toStringAsFixed(1)} min',
+                      TextStyle(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    );
+                  }).toList();
                 },
               ),
+              handleBuiltInTouches: true,
+              touchSpotThreshold: 20,
             ),
           ),
         ),
@@ -261,7 +362,6 @@ class _SummaryScreenState extends State<SummaryScreen> {
   }
 
   Widget buildStatisticsTable(List<DoneActivity> allActivities) {
-    final theme = themeProvider.themeData.colorScheme;
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
     final startOfWeek = startOfDay.subtract(Duration(days: startOfDay.weekday - 1));
@@ -309,13 +409,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
         decoration: BoxDecoration(
-          color: theme.primary.withOpacity(0.1),
+          color: themeProvider.themeData.colorScheme.primary.withOpacity(0.1),
         ),
         child: Text(
           text,
           style: TextStyle(
             // fontWeight: FontWeight.bold,
-            color: theme.primary,
+            color: themeProvider.themeData.colorScheme.primary,
           ),
         ),
       );
@@ -332,43 +432,45 @@ class _SummaryScreenState extends State<SummaryScreen> {
       elevation: 0,
       margin: const EdgeInsets.all(8.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const Padding(
             padding: EdgeInsets.all(16.0),
           ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowHeight: 40,
-              dataRowMaxHeight: 56,
-              columnSpacing: 8,
-              columns: [
-                DataColumn(label: buildHeaderCell('Period')),
-                DataColumn(label: buildHeaderCell('Tasks')),
-                DataColumn(label: buildHeaderCell('Delayed')),
-                DataColumn(label: buildHeaderCell('Nailed')),
-              ],
-              rows: [
-                DataRow(cells: [
-                  DataCell(buildDataCell('Today', isHighlight: true)),
-                  DataCell(buildDataCell(dayStats['total'].toString(), isHighlight: true)),
-                  DataCell(buildDataCell(dayStats['delayed'].toString(), isHighlight: true)),
-                  DataCell(buildDataCell(dayStats['ahead'].toString(), isHighlight: true)),
-                ]),
-                DataRow(cells: [
-                  DataCell(buildDataCell('This Week')),
-                  DataCell(buildDataCell(weekStats['total'].toString())),
-                  DataCell(buildDataCell(weekStats['delayed'].toString())),
-                  DataCell(buildDataCell(weekStats['ahead'].toString())),
-                ]),
-                DataRow(cells: [
-                  DataCell(buildDataCell('This Month')),
-                  DataCell(buildDataCell(monthStats['total'].toString())),
-                  DataCell(buildDataCell(monthStats['delayed'].toString())),
-                  DataCell(buildDataCell(monthStats['ahead'].toString())),
-                ]),
-              ],
+          Center(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                headingRowHeight: 40,
+                dataRowMaxHeight: 56,
+                columnSpacing: 6,
+                columns: [
+                  DataColumn(label: Center(child: buildHeaderCell('Period'))),
+                  DataColumn(label: Center(child: buildHeaderCell('Tasks'))),
+                  DataColumn(label: Center(child: buildHeaderCell('Delayed'))),
+                  DataColumn(label: Center(child: buildHeaderCell('Nailed'))),
+                ],
+                rows: [
+                  DataRow(cells: [
+                    DataCell(Center(child: buildDataCell('Today', isHighlight: true))),
+                    DataCell(Center(child: buildDataCell(dayStats['total'].toString(), isHighlight: true))),
+                    DataCell(Center(child: buildDataCell(dayStats['delayed'].toString(), isHighlight: true))),
+                    DataCell(Center(child: buildDataCell(dayStats['ahead'].toString(), isHighlight: true))),
+                  ]),
+                  DataRow(cells: [
+                    DataCell(Center(child: buildDataCell('This Week'))),
+                    DataCell(Center(child: buildDataCell(weekStats['total'].toString()))),
+                    DataCell(Center(child: buildDataCell(weekStats['delayed'].toString()))),
+                    DataCell(Center(child: buildDataCell(weekStats['ahead'].toString()))),
+                  ]),
+                  DataRow(cells: [
+                    DataCell(Center(child: buildDataCell('This Month'))),
+                    DataCell(Center(child: buildDataCell(monthStats['total'].toString()))),
+                    DataCell(Center(child: buildDataCell(monthStats['delayed'].toString()))),
+                    DataCell(Center(child: buildDataCell(monthStats['ahead'].toString()))),
+                  ]),
+                ],
+              ),
             ),
           ),
           Row(
@@ -402,90 +504,93 @@ class _SummaryScreenState extends State<SummaryScreen> {
     final activities = databaseActivitiesProvider.activities;
     final filteredActivities = filterActivities(activities, selectedTimeRange);
 
-    return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0),
-        child: ListView(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Wrap(
-                spacing: 8.0,
-                children: [
-                  'Today',
-                  'This Week',
-                  'This Month',
-                  'This Year',
-                  'All Time',
-                ]
-                    .map((range) => InputChip(
-                          label: Text(range),
-                          selected: selectedTimeRange == range,
-                          onPressed: () => setState(() => selectedTimeRange = range),
-                        ))
-                    .toList(),
+    return Consumer(builder: (context, ThemeProvider themeProvider, child) {
+      log('rebuilding');
+      return Scaffold(
+        body: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+          child: ListView(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Wrap(
+                  spacing: 8.0,
+                  children: [
+                    'Today',
+                    'This Week',
+                    'This Month',
+                    'This Year',
+                    'All Time',
+                  ]
+                      .map((range) => InputChip(
+                            label: Text(range),
+                            selected: selectedTimeRange == range,
+                            onPressed: () => setState(() => selectedTimeRange = range),
+                          ))
+                      .toList(),
+                ),
               ),
-            ),
-            const SizedBox(height: 10.0),
-            Card(
-              elevation: 0,
-              margin: const EdgeInsets.all(8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text(
-                      'Time Spent per Activity',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              const SizedBox(height: 10.0),
+              Card(
+                elevation: 0,
+                margin: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Text(
+                        'Time Spent per Activity',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
                     ),
-                  ),
-                  buildBarChart(filteredActivities),
-                ],
+                    buildBarChart(filteredActivities),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 10.0),
-            Card(
-              elevation: 0,
-              margin: const EdgeInsets.all(8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text(
-                      'Time Distribution by Group',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              const SizedBox(height: 10.0),
+              Card(
+                elevation: 0,
+                margin: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Text(
+                        'Time Distribution by Group',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
                     ),
-                  ),
-                  buildPieChart(filteredActivities),
-                ],
+                    buildPieChart(filteredActivities),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 10.0),
-            Card(
-              elevation: 0,
-              margin: const EdgeInsets.all(8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text(
-                      'Time Variance by Group',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              const SizedBox(height: 10.0),
+              Card(
+                elevation: 0,
+                margin: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Text(
+                        'Time Variance by Group',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
                     ),
-                  ),
-                  buildLineChart(filteredActivities),
-                ],
+                    buildLineChart(filteredActivities),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16.0),
-            buildStatisticsTable(activities),
-            const SizedBox(height: 10.0),
-          ],
+              const SizedBox(height: 16.0),
+              buildStatisticsTable(activities),
+              const SizedBox(height: 10.0),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 }
