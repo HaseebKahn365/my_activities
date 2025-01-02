@@ -125,6 +125,25 @@ class _SummaryScreenState extends State<SummaryScreen> {
                 },
               ),
             ),
+            //customize the left labels to be smaller
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                reservedSize: 30,
+                showTitles: true,
+                getTitlesWidget: (value, meta) {
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 10.0),
+                    child: Text(
+                      value.toInt().toString(),
+                      style: TextStyle(
+                        color: themeProvider.themeData.colorScheme.onSurface.withOpacity(0.8),
+                        fontSize: 10,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           ),
           borderData: FlBorderData(show: false),
           gridData: const FlGridData(show: false),
@@ -189,7 +208,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
     ];
 
     return Container(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.only(bottom: 20.0),
       child: AspectRatio(
         aspectRatio: 1.5,
         child: PieChart(
@@ -201,8 +220,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
                 title: '${topGroups[index].key}\n${topGroups[index].value.toStringAsFixed(0)}m',
                 color: colors[index % colors.length],
                 radius: 100,
-                titleStyle: const TextStyle(
-                  fontSize: 12,
+                titleStyle: TextStyle(
+                  fontSize: 7,
+                  // color: //on surface color
+                  color: themeProvider.themeData.colorScheme.surface,
                 ),
               ),
             ),
@@ -486,19 +507,73 @@ class _SummaryScreenState extends State<SummaryScreen> {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Column(
               children: [
-                const Text(
-                  'Today: ',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'Today: ',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      '${calculateDayScheduleAdherence().toStringAsFixed(0)} mins (${(calculateDayScheduleAdherence() / 60).toStringAsFixed(1)} hours)',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  '${calculateDayScheduleAdherence().toStringAsFixed(0)} mins (${(calculateDayScheduleAdherence() / 60).toStringAsFixed(1)} hours)',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
+                //add a progress bar to show the schedule adherence out of the total time
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  child: Stack(
+                    children: [
+                      Container(
+                        height: 20,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          color: themeProvider.themeData.colorScheme.primary.withOpacity(0.1),
+                        ),
+                      ),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          return Container(
+                            height: 20,
+                            // width: constraints.maxWidth * (calculateDayScheduleAdherence() / 1440),
+                            width: 200,
+                            decoration: BoxDecoration(
+                              //add an outline
+                              border: Border.all(
+                                color: themeProvider.themeData.colorScheme.primary.withOpacity(0.3),
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                              gradient: LinearGradient(
+                                colors: [
+                                  themeProvider.themeData.colorScheme.primary,
+                                  themeProvider.themeData.colorScheme.primaryContainer,
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      Positioned.fill(
+                        child: Center(
+                          child: Text(
+                            '${(calculateDayScheduleAdherence() / 1440 * 100).toStringAsFixed(1)}%',
+                            style: TextStyle(
+                              color: themeProvider.themeData.colorScheme.onSurface,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

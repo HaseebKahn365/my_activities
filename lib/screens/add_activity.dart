@@ -240,6 +240,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                 //to add an optional description lets use a expansion tile with a textformfield
 
                 //here should be an expansion tile for the description
+                const SizedBox(height: 16.0),
                 ExpansionTile(
                   title: const Text('Description'),
                   children: [
