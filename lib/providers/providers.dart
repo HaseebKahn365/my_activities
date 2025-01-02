@@ -76,6 +76,7 @@ class DatabaseActivities extends ChangeNotifier {
 
   // Add a new activity to the database
   Future<void> doneActivity(DoneActivity activity) async {
+    log('Description: ${activity.description}');
     final db = await database;
     await db.insert(
       'activities',
@@ -119,27 +120,6 @@ class DatabaseActivities extends ChangeNotifier {
     printActivities();
 
     notifyListeners();
-  }
-
-  // Save current activities to database
-  Future<void> saveToDb() async {
-    final db = await database;
-    await db.delete('activities');
-
-    for (var activity in activities) {
-      await db.insert(
-        'activities',
-        {
-          'title': activity.title,
-          'groupTitle': activity.groupTitle,
-          'startTime': activity.startTime.toIso8601String(),
-          'estimatedEndTime': activity.estimatedEndTime.toIso8601String(),
-          'finishTime': activity.finishTime.toIso8601String(),
-          'category': activity.category.name,
-          'description': activity.description,
-        },
-      );
-    }
   }
 
   // Query activities by category

@@ -145,6 +145,7 @@ class ActiveActivitiesScreen extends StatelessWidget {
                           estimatedEndTime: activity.estimatedEndTime,
                           finishTime: DateTime.now(),
                           category: activity.category,
+                          description: activity.description,
                         );
                         await databaseActivitiesProvider.doneActivity(
                           doneActivity,
@@ -276,6 +277,7 @@ class _ActivityCardState extends State<ActivityCard> with SingleTickerProviderSt
       estimatedEndTime: widget.activity.estimatedEndTime,
       finishTime: DateTime.now(),
       category: widget.activity.category,
+      description: widget.activity.description,
     );
     widget.onDone(doneActivity);
   }
@@ -380,6 +382,17 @@ class _ActivityCardState extends State<ActivityCard> with SingleTickerProviderSt
                     ),
                   ],
                 ),
+                //add description if it exists
+                if (widget.activity.description != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    widget.activity.description!,
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

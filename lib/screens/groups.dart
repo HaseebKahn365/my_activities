@@ -189,16 +189,28 @@ class GroupDetailsScreen extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(5),
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: themeProvider.themeData.colorScheme.onSurface.withOpacity(0.01),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
               ),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Total Activities: ${activities.length}',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
+                  Text('Total Activities: ${activities.length}', style: Theme.of(context).textTheme.headlineSmall),
+                  const SizedBox(height: 8),
                   Text(
                     'Last Updated: ${Jiffy.parse(activities.first.finishTime.toString()).fromNow()}',
                     style: Theme.of(context).textTheme.bodyMedium,
@@ -213,14 +225,42 @@ class GroupDetailsScreen extends StatelessWidget {
               padding: const EdgeInsets.all(8),
               itemCount: activities.length,
               itemBuilder: (context, index) {
+                // Helper method for time information rows
+                Widget buildTimeInfo(BuildContext context, IconData icon, String label, String time, Color iconColor) {
+                  return Row(
+                    children: [
+                      Icon(icon, size: 20, color: iconColor),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            label,
+                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                  color: Theme.of(context).colorScheme.secondary,
+                                ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            time,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                }
+
                 final activity = activities[index];
                 return Card(
-                  margin: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                  margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(5),
                     side: BorderSide(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                      color: themeProvider.themeData.colorScheme.primary.withOpacity(0.2),
                       width: 1,
                     ),
                   ),
@@ -229,67 +269,129 @@ class GroupDetailsScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Header with title and duration
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
                               child: Text(
-                                '${activity.title} - ${Jiffy.parse(activity.finishTime.toString()).fromNow()}',
+                                activity.title,
                                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.w500,
+                                      fontWeight: FontWeight.w600,
+                                      color: Theme.of(context).colorScheme.onSurface,
                                     ),
                                 softWrap: true,
-                                overflow: TextOverflow.visible,
                               ),
                             ),
-                            //time it took
-                            Text(
-                              '${activity.finishTime.difference(activity.startTime).inMinutes} min',
-                              style: Theme.of(context).textTheme.bodyMedium,
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${activity.finishTime.difference(activity.startTime).inMinutes} min',
+                                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                              ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Timestamps section
+                        buildTimeInfo(
+                          context,
+                          Icons.play_circle_outlined,
+                          'Started',
+                          Jiffy.parse(activity.startTime.toString()).format(pattern: 'dd/MM/yyyy h:mm a'),
+                          Colors.blue,
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Icon(Icons.play_circle_outline, color: Theme.of(context).colorScheme.primary),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Started: ${Jiffy.parse(activity.startTime.toString()).format(pattern: 'dd/MM/yyyy               h:mm a')}',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ],
+
+                        buildTimeInfo(
+                          context,
+                          Icons.check_circle_outline,
+                          'Finished',
+                          Jiffy.parse(activity.finishTime.toString()).format(pattern: 'dd/MM/yyyy h:mm a'),
+                          Colors.green,
                         ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(Icons.check_circle_outline, color: Theme.of(context).colorScheme.secondary),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Finished: ${Jiffy.parse(activity.finishTime.toString()).format(pattern: 'dd/MM/yyyy             h:mm a')}',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ],
+                        const SizedBox(height: 12),
+
+                        buildTimeInfo(
+                          context,
+                          Icons.access_time,
+                          'Expected',
+                          '${Jiffy.parse(activity.estimatedEndTime.toString()).format(pattern: 'h:mm a')} (${Jiffy.parse(activity.estimatedEndTime.toString()).fromNow()})',
+                          Theme.of(context).colorScheme.primary,
                         ),
-                        //estimated end time
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(Icons.access_time, color: Theme.of(context).colorScheme.primary),
-                            const SizedBox(width: 8),
-                            Column(
-                              children: [
-                                Text(
-                                  'expected: ${Jiffy.parse(activity.estimatedEndTime.toString()).fromNow()}',
-                                  style: Theme.of(context).textTheme.bodyMedium,
+
+                        if (activity.description?.isNotEmpty ?? false) ...[
+                          const SizedBox(height: 16),
+                          const Divider(),
+                          const SizedBox(height: 12),
+                          // Description section
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.description_outlined,
+                                size: 20,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Description',
+                                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                            color: Theme.of(context).colorScheme.secondary,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      activity.description!,
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                            color: Theme.of(context).colorScheme.onSurface,
+                                          ),
+                                    ),
+                                  ],
                                 ),
-                                Text(
-                                  'at ${Jiffy.parse(activity.estimatedEndTime.toString()).format(pattern: 'h:mm a')}',
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                              ],
-                            ),
-                          ],
+                              ),
+                            ],
+                          ),
+                        ],
+
+                        const SizedBox(height: 12),
+                        // Category section at bottom
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.label_outline,
+                                size: 18,
+                                color: Theme.of(context).colorScheme.secondary,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                activity.category.toString(),
+                                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
