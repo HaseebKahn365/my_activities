@@ -543,8 +543,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         builder: (context, constraints) {
                           return Container(
                             height: 20,
-                            // width: constraints.maxWidth * (calculateDayScheduleAdherence() / 1440),
-                            width: 200,
+                            width: constraints.maxWidth * (calculateDayScheduleAdherence() / 1440),
                             decoration: BoxDecoration(
                               //add an outline
                               border: Border.all(

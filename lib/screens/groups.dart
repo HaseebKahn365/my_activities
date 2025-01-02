@@ -405,9 +405,25 @@ class GroupDetailsScreen extends StatelessWidget {
       //add a floating action button to add a new activity but with the groupTitle already filled
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          Navigator.of(context).push(MaterialPageRoute(
-            builder: (context) => AddActivityScreen(groupTitle: groupTitle),
-          ));
+          Navigator.of(context).push(
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) => AddActivityScreen(groupTitle: groupTitle),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                var begin = const Offset(0.0, 1.0);
+                var end = Offset.zero;
+                var curve = Curves.linearToEaseOut;
+                var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                var offsetAnimation = animation.drive(tween);
+
+                return SlideTransition(
+                  position: offsetAnimation,
+                  child: child,
+                );
+              },
+              transitionDuration: const Duration(milliseconds: 500),
+              reverseTransitionDuration: const Duration(milliseconds: 500),
+            ),
+          );
         },
         label: const Text('Add Activity'),
         icon: const Icon(Icons.add),

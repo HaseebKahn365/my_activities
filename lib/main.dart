@@ -80,7 +80,7 @@ class _SplashScreenState extends State<SplashScreen> {
         _d = true;
       });
     });
-    Timer(const Duration(milliseconds: 3650), () {
+    Timer(const Duration(milliseconds: 3600), () {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => const MyHomePage(),
