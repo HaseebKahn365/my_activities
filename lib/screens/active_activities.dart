@@ -8,11 +8,13 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ActiveActivity {
+  //we need to add optional description to the activity
   final String title;
-  final String groupTitle;
+  String groupTitle;
   final DateTime startTime;
   final DateTime estimatedEndTime;
   final Category category;
+  String? description;
 
   ActiveActivity({
     required this.title,
@@ -20,6 +22,7 @@ class ActiveActivity {
     required this.startTime,
     required this.estimatedEndTime,
     required this.category,
+    this.description,
   });
 
   String toStr() {
@@ -29,7 +32,8 @@ class ActiveActivity {
     // Convert all the datetimes to milliseconds since epoch
     final startTime = this.startTime.millisecondsSinceEpoch;
     final estimatedEndTime = this.estimatedEndTime.millisecondsSinceEpoch;
-    return '$title,$groupTitle,$startTime,$estimatedEndTime,${category.index}@';
+    final description = this.description ?? '';
+    return '$title,$groupTitle,$startTime,$estimatedEndTime,${category.index},$description@';
   }
 
   // Factory constructor for creating ActiveActivity from string making sure to use @ as the delimiter
@@ -37,17 +41,20 @@ class ActiveActivity {
     final parts = str.split(',');
     final title = parts[0].replaceAll('-', '@');
     final groupTitle = parts[1].replaceAll('-', '@');
+
     final startMSE = int.parse(parts[2]);
     final endMSE = int.parse(parts[3]);
     final startTime = DateTime.fromMillisecondsSinceEpoch(startMSE);
     final estimatedEndTime = DateTime.fromMillisecondsSinceEpoch(endMSE);
     final category = Category.values[int.parse(parts[4].substring(0, 1))];
+    final description = parts[5].substring(0, parts[5].length - 1);
     return ActiveActivity(
       title: title,
       groupTitle: groupTitle,
       startTime: startTime,
       estimatedEndTime: estimatedEndTime,
       category: category,
+      description: description,
     );
   }
 }
@@ -59,6 +66,13 @@ class SharedPrefActivities extends ChangeNotifier {
 
   void addActivity(ActiveActivity activity) {
     // activities.add(activity);insert the activity to the front
+    //remove the spacing on the right and left of the group title to avoid creation of new groups if the titles are the same
+    log('title length of group before trim: ${activity.title.length}');
+    log('title: ${activity.title}');
+    activity.groupTitle = activity.groupTitle.trim();
+    log('title length of group after trim: ${activity.title.length}');
+    log('title: ${activity.title}');
+
     activities.insert(0, activity);
     saveActivities();
     notifyListeners();

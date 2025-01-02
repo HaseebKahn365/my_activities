@@ -12,6 +12,7 @@ we will also display the most recent 3 activities of this group
 import 'package:flutter/material.dart';
 import 'package:jiffy/jiffy.dart';
 import 'package:my_activities/providers/providers.dart';
+import 'package:my_activities/screens/add_activity.dart';
 import 'package:provider/provider.dart';
 
 class DoneActivityCard extends StatelessWidget {
@@ -298,6 +299,16 @@ class GroupDetailsScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+      //add a floating action button to add a new activity but with the groupTitle already filled
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.of(context).push(MaterialPageRoute(
+            builder: (context) => AddActivityScreen(groupTitle: groupTitle),
+          ));
+        },
+        label: const Text('Add Activity'),
+        icon: const Icon(Icons.add),
       ),
     );
   }

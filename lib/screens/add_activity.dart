@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:duration_picker/duration_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,7 +8,9 @@ import 'package:my_activities/providers/providers.dart';
 import 'package:my_activities/screens/active_activities.dart';
 
 class AddActivityScreen extends StatefulWidget {
-  const AddActivityScreen({super.key});
+  final String? groupTitle;
+  const AddActivityScreen({super.key, this.groupTitle});
+  //there should be an optional param to indicate that i am adding a new activity from a group page this way the group title will be prefilled
 
   @override
   _AddActivityScreenState createState() => _AddActivityScreenState();
@@ -16,11 +20,13 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _groupTitleController = TextEditingController();
+  final descriptionController = TextEditingController();
   final DateTime _startTime = DateTime.now();
   DateTime _estimatedEndTime = DateTime.now().add(const Duration(hours: 1));
   Category _selectedCategory = Category.s;
   final activeGroups = sharedPrefActivitiesProvider.activities.map((e) => e.groupTitle).toSet();
   final doneGroups = databaseActivitiesProvider.activities.map((e) => e.groupTitle).toSet();
+  String _description = '';
 
   // Add this helper method in the class
   String _formatTimeRemaining(DateTime endTime) {
@@ -101,14 +107,15 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                   },
                   fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
                     // Synchronize the controllers
+                    final preFilledGroupTitle = widget.groupTitle;
                     textEditingController.text = _groupTitleController.text;
 
                     return TextFormField(
                       controller: textEditingController,
                       focusNode: focusNode,
-                      decoration: const InputDecoration(
-                        labelText: 'Group Title',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: preFilledGroupTitle ?? 'Group Title',
+                        border: const OutlineInputBorder(),
                       ),
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s]+')),
@@ -125,6 +132,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                           _groupTitleController.text = cleanedText; // Update the controller's value here
                         });
                       },
+                      enabled: widget.groupTitle == null, // Disable if groupTitle is prefilled
                     );
                   },
                   optionsViewBuilder: (context, onSelected, options) {
@@ -161,10 +169,14 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                 ListTile(
                   //dd-MM-yyyy hh:mm a lets use jiffy to format the date
                   //show (timeago from now using jiffy)
-                  title: Text('Estimated End Time\n${_formatTimeRemaining(_estimatedEndTime)}'),
+                  title: Text('Estimated End Time (${_formatTimeRemaining(_estimatedEndTime)})'),
                   subtitle: Text(Jiffy.parse(_estimatedEndTime.toString()).yMMMMdjm),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.calendar_today),
+                ),
+                const SizedBox(height: 16.0),
+                Container(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.timer),
+                    label: const Text('Set Time'),
                     onPressed: () async {
                       final picked = await showDurationPicker(
                         context: context,
@@ -178,6 +190,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                     },
                   ),
                 ),
+
                 const SizedBox(height: 16.0),
                 SizedBox(
                   width: 400,
@@ -224,17 +237,55 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                     ),
                   ),
                 ),
+                //to add an optional description lets use a expansion tile with a textformfield
+
+                //here should be an expansion tile for the description
+                ExpansionTile(
+                  title: const Text('Description'),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10.0),
+                      child: TextFormField(
+                        controller: descriptionController,
+                        decoration: const InputDecoration(
+                          labelText: 'Description',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 3,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s]')),
+                        ],
+                        onChanged: (value) {
+                          final cleanedText = value.replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), '');
+                          if (value != cleanedText) {
+                            descriptionController.text = cleanedText;
+                            descriptionController.selection = TextSelection.fromPosition(
+                              TextPosition(offset: cleanedText.length),
+                            );
+                          }
+                          setState(() {
+                            log('description: $cleanedText');
+                            _description = cleanedText;
+                          });
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+
                 const SizedBox(height: 70.0),
                 OutlinedButton.icon(
                   icon: const Icon(Icons.add),
                   onPressed: () {
+                    log('description: $_description');
                     if (_formKey.currentState!.validate()) {
                       final newActivity = ActiveActivity(
                         title: _titleController.text,
-                        groupTitle: _groupTitleController.text,
+                        groupTitle: widget.groupTitle ?? _groupTitleController.text,
                         startTime: _startTime,
                         estimatedEndTime: _estimatedEndTime,
                         category: _selectedCategory,
+                        description: _description,
                       );
                       sharedPrefActivitiesProvider.addActivity(newActivity);
                       Navigator.pop(context);

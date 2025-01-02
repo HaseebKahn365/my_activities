@@ -12,6 +12,8 @@ final themeProvider = ThemeProvider();
 final sharedPrefActivitiesProvider = SharedPrefActivities();
 final databaseActivitiesProvider = DatabaseActivities();
 
+//now we need to also take and optional parameter of description for done activity into account
+
 class DoneActivity {
   final String title;
   final String groupTitle;
@@ -19,6 +21,7 @@ class DoneActivity {
   final DateTime estimatedEndTime;
   final DateTime finishTime;
   final Category category;
+  final String? description;
 
   DoneActivity({
     required this.title,
@@ -27,6 +30,7 @@ class DoneActivity {
     required this.estimatedEndTime,
     required this.finishTime,
     required this.category,
+    this.description,
   });
 }
 
@@ -45,7 +49,7 @@ class DatabaseActivities extends ChangeNotifier {
     String path = pathProvider.join(await getDatabasesPath(), 'activities.db');
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // Increment version number
       onCreate: (Database db, int version) async {
         await db.execute('''
           CREATE TABLE activities(
@@ -55,9 +59,17 @@ class DatabaseActivities extends ChangeNotifier {
             startTime TEXT NOT NULL,
             estimatedEndTime TEXT NOT NULL,
             finishTime TEXT NOT NULL,
-            category TEXT NOT NULL
+            category TEXT NOT NULL,
+            description TEXT
           )
         ''');
+      },
+      onUpgrade: (Database db, int oldVersion, int newVersion) async {
+        log('Upgrading database from version $oldVersion to $newVersion');
+        if (oldVersion < 2) {
+          // Add description column to existing table
+          await db.execute('ALTER TABLE activities ADD COLUMN description TEXT');
+        }
       },
     );
   }
@@ -73,7 +85,8 @@ class DatabaseActivities extends ChangeNotifier {
         'startTime': activity.startTime.toIso8601String(),
         'estimatedEndTime': activity.estimatedEndTime.toIso8601String(),
         'finishTime': activity.finishTime.toIso8601String(),
-        'category': activity.category.toString(), // Using .name to get the enum value as string
+        'category': activity.category.toString(),
+        'description': activity.description,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
@@ -98,8 +111,9 @@ class DatabaseActivities extends ChangeNotifier {
               finishTime: DateTime.parse(map['finishTime']),
               category: Category.values.firstWhere(
                 (e) => e.name == map['category'],
-                orElse: () => Category.w, // Default to 'w' if not found
+                orElse: () => Category.w,
               ),
+              description: map['description'],
             ))
         .toList();
     printActivities();
@@ -107,25 +121,10 @@ class DatabaseActivities extends ChangeNotifier {
     notifyListeners();
   }
 
-  Category getCategory(String category) {
-    switch (category) {
-      case 'w':
-        return Category.w;
-
-      case 's':
-        return Category.s;
-      case 'm':
-        return Category.m;
-
-      default:
-        return Category.w;
-    }
-  }
-
-  // Save current activities to database (useful for bulk updates)
+  // Save current activities to database
   Future<void> saveToDb() async {
     final db = await database;
-    await db.delete('activities'); // Clear existing data
+    await db.delete('activities');
 
     for (var activity in activities) {
       await db.insert(
@@ -136,27 +135,12 @@ class DatabaseActivities extends ChangeNotifier {
           'startTime': activity.startTime.toIso8601String(),
           'estimatedEndTime': activity.estimatedEndTime.toIso8601String(),
           'finishTime': activity.finishTime.toIso8601String(),
-          'category': activity.category.name, // Using .name to get the enum value as string
+          'category': activity.category.name,
+          'description': activity.description,
         },
       );
     }
   }
-
-  // Delete an activity
-  Future<void> deleteActivity(DoneActivity activity) async {
-    final db = await database;
-    await db.delete(
-      'activities',
-      where: 'title = ? AND startTime = ?',
-      whereArgs: [activity.title, activity.startTime.toIso8601String()],
-    );
-
-    activities.removeWhere((a) => a.title == activity.title && a.startTime == activity.startTime);
-    notifyListeners();
-  }
-
-  // Get activity count
-  int get count => activities.length;
 
   // Query activities by category
   Future<List<DoneActivity>> getActivitiesByCategory(Category category) async {
@@ -175,28 +159,50 @@ class DatabaseActivities extends ChangeNotifier {
               estimatedEndTime: DateTime.parse(map['estimatedEndTime']),
               finishTime: DateTime.parse(map['finishTime']),
               category: getCategory(map['category']),
+              description: map['description'],
             ))
         .toList();
   }
 
-  //method to print the activities in the database
-  void printActivities() async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('activities');
-    log(maps.toString());
+  //get category from string
+  Category getCategory(String category) {
+    switch (category) {
+      case 'w':
+        return Category.w;
+      case 's':
+        return Category.s;
+      case 'm':
+        return Category.m;
+      case 'l':
+        return Category.l;
+      default:
+        return Category.w;
+    }
   }
 
-  //delete all activities by group title
+  // Print all activities
+
+  void printActivities() {
+    for (var activity in activities) {
+      log('Activity: ${activity.title}');
+    }
+  }
+
+  //delete activities by group title
   Future<void> deleteActivitiesByGroupTitle(String groupTitle) async {
     log('Deleting activities with group title: $groupTitle');
     final db = await database;
-    await db.delete(
-      'activities',
-      where: 'groupTitle = ?',
-      whereArgs: [groupTitle],
-    );
+    await db.delete('activities', where: 'groupTitle = ?', whereArgs: [groupTitle]);
+    activities.removeWhere((activity) => activity.groupTitle == groupTitle);
+    notifyListeners();
+  }
 
-    activities.removeWhere((a) => a.groupTitle == groupTitle);
+  //delete single activity
+  Future<void> deleteActivity(DoneActivity activity) async {
+    log('Deleting activity: ${activity.title}');
+    final db = await database;
+    await db.delete('activities', where: 'groupTitle = ? AND title = ?', whereArgs: [activity.groupTitle, activity.title]);
+    activities.removeWhere((act) => act.title == activity.title && act.groupTitle == activity.groupTitle);
     notifyListeners();
   }
 }
