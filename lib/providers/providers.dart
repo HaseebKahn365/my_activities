@@ -177,12 +177,11 @@ class DatabaseActivities extends ChangeNotifier {
     notifyListeners();
   }
 
-  //delete single activity
   Future<void> deleteActivity(DoneActivity activity) async {
     log('Deleting activity: ${activity.title}');
     final db = await database;
-    await db.delete('activities', where: 'groupTitle = ? AND title = ?', whereArgs: [activity.groupTitle, activity.title]);
-    activities.removeWhere((act) => act.title == activity.title && act.groupTitle == activity.groupTitle);
+    await db.delete('activities', where: 'groupTitle = ? AND title = ? AND estimatedEndTime = ?', whereArgs: [activity.groupTitle, activity.title, activity.estimatedEndTime.toIso8601String()]);
+    activities.removeWhere((act) => act.title == activity.title && act.groupTitle == activity.groupTitle && act.estimatedEndTime.isAtSameMomentAs(activity.estimatedEndTime));
     notifyListeners();
   }
 }

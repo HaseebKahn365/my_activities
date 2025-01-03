@@ -9,6 +9,7 @@ we will also display the most recent 3 activities of this group
 
  */
 
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:jiffy/jiffy.dart';
 import 'package:my_activities/providers/providers.dart';
@@ -107,22 +108,26 @@ class DoneActivitiesScreen extends StatelessWidget {
             groupedActivities.putIfAbsent(activity.groupTitle, () => []).add(activity);
           }
 
-          // Step 3: Build cards for each group
           final groupCards = groupedActivities.entries.map((entry) {
             final groupTitle = entry.key.isEmpty ? 'Extra' : entry.key;
             final activities = entry.value;
-            final recentActivities = activities.take(3).toList(); // Most recent 3 activities
-            return GestureDetector(
-              child: DoneActivityCard(
-                groupTitle: groupTitle,
-                activityCount: activities.length,
-                recentActivities: recentActivities,
-              ),
-              onTap: () {
-                // Navigate to the group details screen using material routing
-                Navigator.of(context).push(MaterialPageRoute(
-                  builder: (context) => GroupDetailsScreen(groupTitle: groupTitle, activities: activities),
-                ));
+            final recentActivities = activities.take(3).toList();
+            return OpenContainer(
+              clipBehavior: Clip.antiAlias,
+              middleColor: Colors.transparent,
+              openElevation: 0,
+              closedElevation: 0,
+              closedColor: Colors.transparent,
+              openColor: Colors.transparent,
+              closedBuilder: (context, openContainer) {
+                return DoneActivityCard(
+                  groupTitle: groupTitle,
+                  activityCount: activities.length,
+                  recentActivities: recentActivities,
+                );
+              },
+              openBuilder: (context, closeContainer) {
+                return GroupDetailsScreen(groupTitle: groupTitle, activities: activities);
               },
             );
           }).toList();
@@ -137,7 +142,7 @@ class DoneActivitiesScreen extends StatelessWidget {
   }
 }
 
-class GroupDetailsScreen extends StatelessWidget {
+class GroupDetailsScreen extends StatefulWidget {
   final String groupTitle;
   final List<DoneActivity> activities;
 
@@ -146,6 +151,18 @@ class GroupDetailsScreen extends StatelessWidget {
     required this.groupTitle,
     required this.activities,
   });
+
+  @override
+  State<GroupDetailsScreen> createState() => _GroupDetailsScreenState();
+}
+
+class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
+//destroy the card of the activity that was deleted
+  void destroyThisCard(DoneActivity activity) {
+    setState(() {
+      widget.activities.remove(activity);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -170,7 +187,7 @@ class GroupDetailsScreen extends StatelessWidget {
                       TextButton(
                         onPressed: () async {
                           //delete all activities in this group
-                          await databaseActivitiesProvider.deleteActivitiesByGroupTitle(groupTitle);
+                          await databaseActivitiesProvider.deleteActivitiesByGroupTitle(widget.groupTitle);
                           Navigator.of(context).pop();
                         },
                         child: const Text('Delete'),
@@ -209,10 +226,10 @@ class GroupDetailsScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Total Activities: ${activities.length}', style: Theme.of(context).textTheme.headlineSmall),
+                  Text('Total Activities: ${widget.activities.length}', style: Theme.of(context).textTheme.headlineSmall),
                   const SizedBox(height: 8),
                   Text(
-                    'Last Updated: ${Jiffy.parse(activities.first.finishTime.toString()).fromNow()}',
+                    'Last Updated: ${Jiffy.parse(widget.activities.first.finishTime.toString()).fromNow()}',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
@@ -223,7 +240,7 @@ class GroupDetailsScreen extends StatelessWidget {
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(8),
-              itemCount: activities.length,
+              itemCount: widget.activities.length,
               itemBuilder: (context, index) {
                 // Helper method for time information rows
                 Widget buildTimeInfo(BuildContext context, IconData icon, String label, String time, Color iconColor) {
@@ -253,150 +270,181 @@ class GroupDetailsScreen extends StatelessWidget {
                   );
                 }
 
-                final activity = activities[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(5),
-                    side: BorderSide(
-                      color: themeProvider.themeData.colorScheme.primary.withOpacity(0.2),
-                      width: 1,
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Header with title and duration
-                        Row(
+                final activity = widget.activities[index];
+                return GestureDetector(
+                    //on long press, show a dialog to delete this activity
+                    onLongPress: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) {
+                          return AlertDialog(
+                            title: const Text('Delete this activity?'),
+                            content: const Text('This action cannot be undone.'),
+                            actions: [
+                              TextButton(
+                                onPressed: () async {
+                                  //delete this activity
+                                  await databaseActivitiesProvider.deleteActivity(activity);
+                                  Navigator.of(context).pop();
+                                  destroyThisCard(activity);
+                                },
+                                child: const Text('Delete'),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                                child: const Text('Cancel'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                    child: Card(
+                      margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(5),
+                        side: BorderSide(
+                          color: themeProvider.themeData.colorScheme.primary.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Text(
-                                activity.title,
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: Theme.of(context).colorScheme.onSurface,
-                                    ),
-                                softWrap: true,
-                              ),
+                            // Header with title and duration
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    activity.title,
+                                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: Theme.of(context).colorScheme.onSurface,
+                                        ),
+                                    softWrap: true,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.primaryContainer,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    '${activity.finishTime.difference(activity.startTime).inMinutes} min',
+                                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                  ),
+                                ),
+                              ],
                             ),
+                            const SizedBox(height: 16),
+
+                            // Timestamps section
+                            buildTimeInfo(
+                              context,
+                              Icons.play_circle_outlined,
+                              'Started',
+                              Jiffy.parse(activity.startTime.toString()).format(pattern: 'dd/MM/yyyy h:mm a'),
+                              Colors.blue,
+                            ),
+                            const SizedBox(height: 12),
+
+                            buildTimeInfo(
+                              context,
+                              Icons.check_circle_outline,
+                              'Finished',
+                              Jiffy.parse(activity.finishTime.toString()).format(pattern: 'dd/MM/yyyy h:mm a'),
+                              Colors.green,
+                            ),
+                            const SizedBox(height: 12),
+
+                            buildTimeInfo(
+                              context,
+                              Icons.access_time,
+                              'Expected',
+                              '${Jiffy.parse(activity.estimatedEndTime.toString()).format(pattern: 'h:mm a')} (${Jiffy.parse(activity.estimatedEndTime.toString()).fromNow()})',
+                              Theme.of(context).colorScheme.primary,
+                            ),
+
+                            if (activity.description?.isNotEmpty ?? false) ...[
+                              const SizedBox(height: 16),
+                              const Divider(),
+                              const SizedBox(height: 12),
+                              // Description section
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    Icons.description_outlined,
+                                    size: 20,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Description',
+                                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                                color: Theme.of(context).colorScheme.secondary,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          activity.description!,
+                                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                                color: Theme.of(context).colorScheme.onSurface,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+
+                            const SizedBox(height: 12),
+                            // Category section at bottom
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primaryContainer,
-                                borderRadius: BorderRadius.circular(20),
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Text(
-                                '${activity.finishTime.difference(activity.startTime).inMinutes} min',
-                                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.label_outline,
+                                    size: 18,
+                                    color: Theme.of(context).colorScheme.secondary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    activity.category.toString(),
+                                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-
-                        // Timestamps section
-                        buildTimeInfo(
-                          context,
-                          Icons.play_circle_outlined,
-                          'Started',
-                          Jiffy.parse(activity.startTime.toString()).format(pattern: 'dd/MM/yyyy h:mm a'),
-                          Colors.blue,
-                        ),
-                        const SizedBox(height: 12),
-
-                        buildTimeInfo(
-                          context,
-                          Icons.check_circle_outline,
-                          'Finished',
-                          Jiffy.parse(activity.finishTime.toString()).format(pattern: 'dd/MM/yyyy h:mm a'),
-                          Colors.green,
-                        ),
-                        const SizedBox(height: 12),
-
-                        buildTimeInfo(
-                          context,
-                          Icons.access_time,
-                          'Expected',
-                          '${Jiffy.parse(activity.estimatedEndTime.toString()).format(pattern: 'h:mm a')} (${Jiffy.parse(activity.estimatedEndTime.toString()).fromNow()})',
-                          Theme.of(context).colorScheme.primary,
-                        ),
-
-                        if (activity.description?.isNotEmpty ?? false) ...[
-                          const SizedBox(height: 16),
-                          const Divider(),
-                          const SizedBox(height: 12),
-                          // Description section
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                Icons.description_outlined,
-                                size: 20,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Description',
-                                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                            color: Theme.of(context).colorScheme.secondary,
-                                          ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      activity.description!,
-                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                            color: Theme.of(context).colorScheme.onSurface,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-
-                        const SizedBox(height: 12),
-                        // Category section at bottom
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.label_outline,
-                                size: 18,
-                                color: Theme.of(context).colorScheme.secondary,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                activity.category.toString(),
-                                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
+                      ),
+                      //lets add a slight floating effect to the card using flutter_animate
+                    ));
               },
             ),
           ),
@@ -407,7 +455,7 @@ class GroupDetailsScreen extends StatelessWidget {
         onPressed: () {
           Navigator.of(context).push(
             PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) => AddActivityScreen(groupTitle: groupTitle),
+              pageBuilder: (context, animation, secondaryAnimation) => AddActivityScreen(groupTitle: widget.groupTitle),
               transitionsBuilder: (context, animation, secondaryAnimation, child) {
                 var begin = const Offset(0.0, 1.0);
                 var end = Offset.zero;
