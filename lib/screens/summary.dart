@@ -34,6 +34,7 @@ import 'dart:developer';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:jiffy/jiffy.dart';
 import 'package:my_activities/providers/providers.dart';
 import 'package:my_activities/screens/homepage.dart';
 import 'package:provider/provider.dart';
@@ -57,13 +58,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
       switch (timeRange) {
         case 'Today':
           return activity.finishTime.isAfter(startOfDay);
-        case 'This Week':
+        case 'Week':
           final startOfWeek = startOfDay.subtract(Duration(days: startOfDay.weekday - 1));
           return activity.finishTime.isAfter(startOfWeek);
-        case 'This Month':
+        case 'Month':
           final startOfMonth = DateTime(now.year, now.month, 1);
           return activity.finishTime.isAfter(startOfMonth);
-        case 'This Year':
+        case 'Year':
           final startOfYear = DateTime(now.year, 1, 1);
           return activity.finishTime.isAfter(startOfYear);
         case 'All Time':
@@ -165,6 +166,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
           ),
           barTouchData: BarTouchData(
             touchTooltipData: BarTouchTooltipData(
+              getTooltipColor: (spot) => themeProvider.themeData.colorScheme.inversePrimary.withOpacity(0.8),
               getTooltipItem: (group, groupIndex, rod, rodIndex) {
                 final activity = topActivities[group.x.toInt()];
                 return BarTooltipItem(
@@ -349,6 +351,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
             borderData: FlBorderData(show: false),
             lineTouchData: LineTouchData(
               touchTooltipData: LineTouchTooltipData(
+                getTooltipColor: (spot) => colorScheme.inversePrimary.withOpacity(0.8),
                 tooltipRoundedRadius: 8,
                 tooltipBorder: BorderSide(
                   color: colorScheme.outline.withOpacity(0.2),
@@ -583,6 +586,189 @@ class _SummaryScreenState extends State<SummaryScreen> {
     );
   }
 
+  //! chart for schedule adherence
+  Widget buildLineChartForGivenDuration(List<DoneActivity> allActivities) {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+
+    log('selected time period is $selectedTimeRange');
+
+    // Calculate start date based on selected range
+    DateTime startDate;
+    switch (selectedTimeRange) {
+      case 'Today':
+        startDate = startOfDay;
+        break;
+      case 'Week':
+        startDate = startOfDay.subtract(Duration(days: startOfDay.weekday - 1));
+        break;
+      case 'Month':
+        startDate = DateTime(now.year, now.month, 1);
+        break;
+      case 'Year':
+        startDate = DateTime(now.year, 1, 1);
+        break;
+      default:
+        startDate = startOfDay;
+    }
+
+    log('Start date: $startDate');
+
+    // Create map to store minutes per day
+    final Map<DateTime, double> dailyMinutes = {};
+
+    // Initialize all dates in the range with 0 minutes
+    DateTime currentDate = startDate;
+    while (currentDate.isBefore(now) || currentDate.isAtSameMomentAs(now)) {
+      dailyMinutes[DateTime(currentDate.year, currentDate.month, currentDate.day)] = 0;
+      currentDate = currentDate.add(const Duration(days: 1));
+    }
+
+    // Calculate minutes for each activity
+    for (final activity in allActivities) {
+      if (activity.finishTime.isAfter(startDate)) {
+        final activityDate = DateTime(
+          activity.finishTime.year,
+          activity.finishTime.month,
+          activity.finishTime.day,
+        );
+        final duration = activity.finishTime.difference(activity.startTime).inMinutes.toDouble();
+        dailyMinutes[activityDate] = (dailyMinutes[activityDate] ?? 0) + duration;
+      }
+    }
+
+    // Convert map to sorted list of FlSpot
+    final spots = dailyMinutes.entries
+        .map((entry) => FlSpot(
+              entry.key.difference(startDate).inDays.toDouble(),
+              entry.value / 60, // Convert minutes to hours
+            ))
+        .toList()
+      ..sort((a, b) => a.x.compareTo(b.x));
+
+    final colorScheme = themeProvider.themeData.colorScheme;
+
+    return Container(
+      height: 300,
+      padding: const EdgeInsets.all(16),
+      child: LineChart(
+        LineChartData(
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: true,
+            getDrawingHorizontalLine: (value) {
+              return FlLine(
+                color: Colors.grey.withOpacity(0.3),
+                strokeWidth: 1,
+              );
+            },
+            getDrawingVerticalLine: (value) {
+              return FlLine(
+                color: Colors.grey.withOpacity(0.3),
+                strokeWidth: 1,
+              );
+            },
+          ),
+          titlesData: FlTitlesData(
+            show: true,
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 30,
+                getTitlesWidget: (value, meta) {
+                  final date = startDate.add(Duration(days: value.toInt()));
+                  // Customize date format based on selected range
+                  String? text;
+                  switch (selectedTimeRange) {
+                    case 'Today':
+                      text = '${date.hour}:00';
+                      break;
+                    case 'This Week':
+                      text = date.weekday == 1
+                          ? 'Mon'
+                          : date.weekday == 7
+                              ? 'Sun'
+                              : '';
+
+                      break;
+                    case 'This Month':
+                      text = date.day.toString();
+                      break;
+                    case 'This Year':
+                      text = Jiffy.parse(date.toString()).format(pattern: 'MM');
+                      break;
+                    default:
+                  }
+                  return Text(
+                    text ?? '',
+                    style: const TextStyle(fontSize: 12),
+                  );
+                },
+                interval: selectedTimeRange == 'This Year' ? 30 : 1,
+              ),
+            ),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 45,
+                getTitlesWidget: (value, meta) {
+                  return Text(
+                    '${value.toStringAsFixed(1)}h',
+                    style: const TextStyle(fontSize: 12),
+                  );
+                },
+              ),
+            ),
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          ),
+          borderData: FlBorderData(
+            show: true,
+            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+          ),
+          minX: 0,
+          maxX: spots.isEmpty ? 0 : spots.last.x,
+          minY: 0,
+          maxY: spots.isEmpty ? 10 : spots.map((spot) => spot.y).reduce((a, b) => a > b ? a : b) + 2,
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              color: colorScheme.primary,
+              barWidth: 3,
+              dotData: FlDotData(show: spots.length < 15),
+              belowBarData: BarAreaData(
+                show: true,
+                // color: Colors.blue.withOpacity(0.2),
+                gradient: LinearGradient(
+                  colors: [colorScheme.primary.withOpacity(0.01), colorScheme.primary.withOpacity(0.5)],
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                ),
+              ),
+            ),
+          ],
+          lineTouchData: LineTouchData(
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipColor: (spot) => colorScheme.primary.withOpacity(0.8),
+              getTooltipItems: (List<LineBarSpot> touchedSpots) {
+                return touchedSpots.map((spot) {
+                  final date = startDate.add(Duration(days: spot.x.toInt()));
+                  final hours = spot.y;
+                  return LineTooltipItem(
+                    // '${date.day}/${date.month}/${date.year}\n${hours.toStringAsFixed(1)} hours',
+                    '${Jiffy.parse(date.toString()).format(pattern: 'd/M/yyyy')}\n${hours.toStringAsFixed(1)} hours',
+                    const TextStyle(color: Colors.white),
+                  );
+                }).toList();
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Get activities from provider
@@ -694,6 +880,36 @@ class _SummaryScreenState extends State<SummaryScreen> {
               const SizedBox(height: 16.0),
               buildStatisticsTable(activities),
               const SizedBox(height: 10.0),
+              //built a line chart for schedule adherence
+              Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(5),
+                  side: BorderSide(
+                    color: themeProvider.themeData.colorScheme.primary.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+                elevation: 0,
+                margin: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          const Text(
+                            'Schedule Adherence',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          Text('for $selectedTimeRange'),
+                        ],
+                      ),
+                    ),
+                    buildLineChartForGivenDuration(activities),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

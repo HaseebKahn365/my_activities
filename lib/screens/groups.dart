@@ -100,18 +100,37 @@ class DoneActivitiesScreen extends StatelessWidget {
     return Scaffold(
       body: Consumer<DatabaseActivities>(
         builder: (context, databaseActivitiesProvider, child) {
+          // Step 1: Sort activities by finish time
           final sortedActivities = List<DoneActivity>.from(databaseActivitiesProvider.activities)..sort((a, b) => b.finishTime.compareTo(a.finishTime));
 
-          // Step 2: Group activities by groupTitle
+          // Step 2: Group activities by normalized groupTitle
           final groupedActivities = <String, List<DoneActivity>>{};
           for (final activity in sortedActivities) {
-            groupedActivities.putIfAbsent(activity.groupTitle, () => []).add(activity);
+            // Normalize group title to prevent case-sensitivity issues
+            final normalizedTitle = activity.groupTitle.trim();
+            final groupTitle = normalizedTitle.isEmpty ? 'Extra' : normalizedTitle;
+
+            // Debug print to identify potential issues
+            print('Adding activity to group: $groupTitle');
+
+            if (groupedActivities.containsKey(groupTitle)) {
+              groupedActivities[groupTitle]!.add(activity);
+            } else {
+              groupedActivities[groupTitle] = [activity];
+            }
           }
 
+          // Debug print to verify groups
+          print('Total number of groups: ${groupedActivities.length}');
+          groupedActivities.forEach((key, value) {
+            print('Group: $key, Number of activities: ${value.length}');
+          });
+
           final groupCards = groupedActivities.entries.map((entry) {
-            final groupTitle = entry.key.isEmpty ? 'Extra' : entry.key;
+            final groupTitle = entry.key; // No need to check isEmpty here as we handled it above
             final activities = entry.value;
             final recentActivities = activities.take(3).toList();
+
             return OpenContainer(
               clipBehavior: Clip.antiAlias,
               middleColor: Colors.transparent,
