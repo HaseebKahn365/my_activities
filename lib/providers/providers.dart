@@ -6,6 +6,30 @@ import 'package:my_activities/screens/homepage.dart';
 import 'package:path/path.dart' as pathProvider;
 import 'package:sqflite/sqflite.dart';
 
+/*
+Here are the new features that I want to add:
+instead of just tracking the end time. we need to track the minutes spent on doing productive work. 
+we should be able to pause the activity mid-work so that we don't increment the minutes.
+
+another feature that we want to add is being able to put groups into folders.
+There should be a root folder containing subfolders or groups.
+
+groups are not folders. groups represent a collection of activities in a project.
+
+while folders allow for a more flexible organization, groups allow for a more structured approach.
+
+
+refactor the databaseActivities helper class to consider the minutes.
+this refactor should not cause errors in the exisiting structure
+
+also create a new attribute called parent folder id which will allow us to put all the activities in a group. 
+
+create a table in the database called folders which willl not only contain the folder name but also an attribute called parent folder id which will allow us to put folders into folders.
+
+for now we should implement these methods and then later we will add methods to put groups into folders and folders into folders
+
+ */
+
 enum Category { w, s, m, l }
 
 final themeProvider = ThemeProvider();
@@ -17,11 +41,13 @@ final databaseActivitiesProvider = DatabaseActivities();
 class DoneActivity {
   final String title;
   final String groupTitle;
+  int minutesSpent;
   final DateTime startTime;
   final DateTime estimatedEndTime;
   final DateTime finishTime;
   final Category category;
   final String? description;
+  final int? parentFolderId;
 
   DoneActivity({
     required this.title,
@@ -31,6 +57,8 @@ class DoneActivity {
     required this.finishTime,
     required this.category,
     this.description,
+    this.minutesSpent = 0,
+    this.parentFolderId,
   });
 }
 
@@ -49,8 +77,19 @@ class DatabaseActivities extends ChangeNotifier {
     String path = pathProvider.join(await getDatabasesPath(), 'activities.db');
     return await openDatabase(
       path,
-      version: 2, // Increment version number
+      version: 3, // Increment version number
       onCreate: (Database db, int version) async {
+        // Create folders table
+        await db.execute('''
+          CREATE TABLE folders(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            parentFolderId INTEGER,
+            FOREIGN KEY (parentFolderId) REFERENCES folders(id)
+          )
+        ''');
+
+        // Create activities table with new columns
         await db.execute('''
           CREATE TABLE activities(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,7 +99,10 @@ class DatabaseActivities extends ChangeNotifier {
             estimatedEndTime TEXT NOT NULL,
             finishTime TEXT NOT NULL,
             category TEXT NOT NULL,
-            description TEXT
+            description TEXT,
+            minutesSpent INTEGER NOT NULL DEFAULT 0,
+            parentFolderId INTEGER,
+            FOREIGN KEY (parentFolderId) REFERENCES folders(id)
           )
         ''');
       },
@@ -70,9 +112,52 @@ class DatabaseActivities extends ChangeNotifier {
           // Add description column to existing table
           await db.execute('ALTER TABLE activities ADD COLUMN description TEXT');
         }
+        if (oldVersion < 3) {
+          // Create folders table
+          await db.execute('''
+            CREATE TABLE folders(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              parentFolderId INTEGER,
+              FOREIGN KEY (parentFolderId) REFERENCES folders(id)
+            )
+          ''');
+          
+          // Add new columns to activities table
+          await db.execute('ALTER TABLE activities ADD COLUMN minutesSpent INTEGER NOT NULL DEFAULT 0');
+          await db.execute('ALTER TABLE activities ADD COLUMN parentFolderId INTEGER');
+          await db.execute('ALTER TABLE activities ADD FOREIGN KEY (parentFolderId) REFERENCES folders(id)');
+        }
       },
     );
   }
+
+
+//! methods for debugging
+  //method to get all folders on the root level
+  Future<List<Map<String, dynamic>>> getRootFolders() async {
+    final db = await database;
+    return await db.query('folders', where: 'parentFolderId IS NULL');
+  }
+
+  //method to get all folders in a folder
+  Future<List<Map<String, dynamic>>> getFoldersInFolder(int folderId) async {
+    final db = await database;
+    return await db.query('folders', where: 'parentFolderId = ?', whereArgs: [folderId]);
+  }
+
+  //method to get all activities in a folder
+  Future<List<Map<String, dynamic>>> getActivitiesInFolder(int folderId) async {
+    final db = await database;
+    return await db.query('activities', where: 'parentFolderId = ?', whereArgs: [folderId]);
+  }
+
+  //method to get all activities in the database
+  Future<List<Map<String, dynamic>>> getAllActivities() async {
+    final db = await database;
+    return await db.query('activities');
+  }
+
 
   // Add a new activity to the database
   Future<void> doneActivity(DoneActivity activity) async {
@@ -88,6 +173,8 @@ class DatabaseActivities extends ChangeNotifier {
         'finishTime': activity.finishTime.toIso8601String(),
         'category': activity.category.toString(),
         'description': activity.description,
+        'minutesSpent': activity.minutesSpent,
+        'parentFolderId': activity.parentFolderId,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
@@ -115,6 +202,8 @@ class DatabaseActivities extends ChangeNotifier {
                 orElse: () => Category.w,
               ),
               description: map['description'],
+              minutesSpent: map['minutesSpent'] ?? 0,
+              parentFolderId: map['parentFolderId'],
             ))
         .toList();
     printActivities();
@@ -140,6 +229,8 @@ class DatabaseActivities extends ChangeNotifier {
               finishTime: DateTime.parse(map['finishTime']),
               category: getCategory(map['category']),
               description: map['description'],
+              minutesSpent: map['minutesSpent'] ?? 0,
+              parentFolderId: map['parentFolderId'],
             ))
         .toList();
   }
@@ -172,7 +263,8 @@ class DatabaseActivities extends ChangeNotifier {
   Future<void> deleteActivitiesByGroupTitle(String groupTitle) async {
     log('Deleting activities with group title: $groupTitle');
     final db = await database;
-    await db.delete('activities', where: 'groupTitle = ?', whereArgs: [groupTitle]);
+    await db
+        .delete('activities', where: 'groupTitle = ?', whereArgs: [groupTitle]);
     activities.removeWhere((activity) => activity.groupTitle == groupTitle);
     notifyListeners();
   }
@@ -180,8 +272,125 @@ class DatabaseActivities extends ChangeNotifier {
   Future<void> deleteActivity(DoneActivity activity) async {
     log('Deleting activity: ${activity.title}');
     final db = await database;
-    await db.delete('activities', where: 'groupTitle = ? AND title = ? AND estimatedEndTime = ?', whereArgs: [activity.groupTitle, activity.title, activity.estimatedEndTime.toIso8601String()]);
-    activities.removeWhere((act) => act.title == activity.title && act.groupTitle == activity.groupTitle && act.estimatedEndTime.isAtSameMomentAs(activity.estimatedEndTime));
+    await db.delete('activities',
+        where: 'groupTitle = ? AND title = ? AND estimatedEndTime = ?',
+        whereArgs: [
+          activity.groupTitle,
+          activity.title,
+          activity.estimatedEndTime.toIso8601String()
+        ]);
+    activities.removeWhere((act) =>
+        act.title == activity.title &&
+        act.groupTitle == activity.groupTitle &&
+        act.estimatedEndTime.isAtSameMomentAs(activity.estimatedEndTime));
+    notifyListeners();
+  }
+
+  // Folder operations
+  Future<int> createFolder(String name, {int? parentFolderId}) async {
+    final db = await database;
+    final id = await db.insert(
+      'folders',
+      {
+        'name': name,
+        'parentFolderId': parentFolderId,
+      },
+    );
+    notifyListeners();
+    return id;
+  }
+
+  Future<void> deleteFolder(int folderId) async {
+    final db = await database;
+    // First delete all activities in this folder
+    await db.delete(
+      'activities',
+      where: 'parentFolderId = ?',
+      whereArgs: [folderId],
+    );
+    // Then delete the folder itself
+    await db.delete(
+      'folders',
+      where: 'id = ?',
+      whereArgs: [folderId],
+    );
+    notifyListeners();
+  }
+
+  Future<List<Map<String, dynamic>>> getFolders({int? parentFolderId}) async {
+    final db = await database;
+    return await db.query(
+      'folders',
+      where: parentFolderId == null ? 'parentFolderId IS NULL' : 'parentFolderId = ?',
+      whereArgs: parentFolderId == null ? [] : [parentFolderId],
+    );
+  }
+
+  Future<void> updateActivityMinutes(DoneActivity activity, int minutesSpent) async {
+    final db = await database;
+    await db.update(
+      'activities',
+      {'minutesSpent': minutesSpent},
+      where: 'title = ? AND groupTitle = ? AND estimatedEndTime = ?',
+      whereArgs: [
+        activity.title,
+        activity.groupTitle,
+        activity.estimatedEndTime.toIso8601String()
+      ],
+    );
+    
+    // Update the local activity
+    final index = activities.indexWhere((act) =>
+        act.title == activity.title &&
+        act.groupTitle == activity.groupTitle &&
+        act.estimatedEndTime.isAtSameMomentAs(activity.estimatedEndTime));
+    if (index != -1) {
+      activities[index] = DoneActivity(
+        title: activity.title,
+        groupTitle: activity.groupTitle,
+        startTime: activity.startTime,
+        estimatedEndTime: activity.estimatedEndTime,
+        finishTime: activity.finishTime,
+        category: activity.category,
+        description: activity.description,
+        minutesSpent: minutesSpent,
+        parentFolderId: activity.parentFolderId,
+      );
+    }
+    notifyListeners();
+  }
+
+  Future<void> moveActivityToFolder(DoneActivity activity, int? folderId) async {
+    final db = await database;
+    await db.update(
+      'activities',
+      {'parentFolderId': folderId},
+      where: 'title = ? AND groupTitle = ? AND estimatedEndTime = ?',
+      whereArgs: [
+        activity.title,
+        activity.groupTitle,
+        activity.estimatedEndTime.toIso8601String()
+      ],
+    );
+    
+    // Update the local activity
+    final index = activities.indexWhere((act) =>
+        act.title == activity.title &&
+        act.groupTitle == activity.groupTitle &&
+        act.estimatedEndTime.isAtSameMomentAs(activity.estimatedEndTime));
+    if (index != -1) {
+      activities[index] = DoneActivity(
+        title: activity.title,
+        groupTitle: activity.groupTitle,
+        startTime: activity.startTime,
+        estimatedEndTime: activity.estimatedEndTime,
+        finishTime: activity.finishTime,
+        category: activity.category,
+        description: activity.description,
+        minutesSpent: activity.minutesSpent,
+        parentFolderId: folderId,
+      );
+    }
     notifyListeners();
   }
 }
