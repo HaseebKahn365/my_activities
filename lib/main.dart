@@ -130,8 +130,12 @@ class _SplashScreenState extends State<SplashScreen> {
                           ? 200
                           : 20,
                   decoration: BoxDecoration(
-                    color: _b ? themeProvider.themeData.colorScheme.surface : Colors.transparent,
-                    borderRadius: _d ? const BorderRadius.only() : BorderRadius.circular(30),
+                    color: _b
+                        ? themeProvider.themeData.colorScheme.surface
+                        : Colors.transparent,
+                    borderRadius: _d
+                        ? const BorderRadius.only()
+                        : BorderRadius.circular(30),
                   ),
                 ),
               ],

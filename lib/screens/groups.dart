@@ -71,10 +71,14 @@ class DoneActivityCard extends StatelessWidget {
                           style: Theme.of(context).textTheme.bodyLarge,
                         ),
                         Text(
-                          activity.finishTime.toLocal().toString().split(' ')[0], // Display only the date
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey,
-                              ),
+                          activity.finishTime
+                              .toLocal()
+                              .toString()
+                              .split(' ')[0], // Display only the date
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey,
+                                  ),
                         ),
                       ],
                     ),
@@ -101,14 +105,17 @@ class DoneActivitiesScreen extends StatelessWidget {
       body: Consumer<DatabaseActivities>(
         builder: (context, databaseActivitiesProvider, child) {
           // Step 1: Sort activities by finish time
-          final sortedActivities = List<DoneActivity>.from(databaseActivitiesProvider.activities)..sort((a, b) => b.finishTime.compareTo(a.finishTime));
+          final sortedActivities =
+              List<DoneActivity>.from(databaseActivitiesProvider.activities)
+                ..sort((a, b) => b.finishTime.compareTo(a.finishTime));
 
           // Step 2: Group activities by normalized groupTitle
           final groupedActivities = <String, List<DoneActivity>>{};
           for (final activity in sortedActivities) {
             // Normalize group title to prevent case-sensitivity issues
             final normalizedTitle = activity.groupTitle.trim();
-            final groupTitle = normalizedTitle.isEmpty ? 'Extra' : normalizedTitle;
+            final groupTitle =
+                normalizedTitle.isEmpty ? 'Extra' : normalizedTitle;
 
             // Debug print to identify potential issues
             print('Adding activity to group: $groupTitle');
@@ -127,7 +134,8 @@ class DoneActivitiesScreen extends StatelessWidget {
           });
 
           final groupCards = groupedActivities.entries.map((entry) {
-            final groupTitle = entry.key; // No need to check isEmpty here as we handled it above
+            final groupTitle = entry
+                .key; // No need to check isEmpty here as we handled it above
             final activities = entry.value;
             final recentActivities = activities.take(3).toList();
 
@@ -146,7 +154,8 @@ class DoneActivitiesScreen extends StatelessWidget {
                 );
               },
               openBuilder: (context, closeContainer) {
-                return GroupDetailsScreen(groupTitle: groupTitle, activities: activities);
+                return GroupDetailsScreen(
+                    groupTitle: groupTitle, activities: activities);
               },
             );
           }).toList();
@@ -206,7 +215,8 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                       TextButton(
                         onPressed: () async {
                           //delete all activities in this group
-                          await databaseActivitiesProvider.deleteActivitiesByGroupTitle(widget.groupTitle);
+                          await databaseActivitiesProvider
+                              .deleteActivitiesByGroupTitle(widget.groupTitle);
                           Navigator.of(context).pop();
                         },
                         child: const Text('Delete'),
@@ -236,7 +246,8 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
-                    color: themeProvider.themeData.colorScheme.onSurface.withOpacity(0.01),
+                    color: themeProvider.themeData.colorScheme.onSurface
+                        .withOpacity(0.01),
                     blurRadius: 10,
                     offset: const Offset(0, 5),
                   ),
@@ -245,7 +256,8 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Total Activities: ${widget.activities.length}', style: Theme.of(context).textTheme.headlineSmall),
+                  Text('Total Activities: ${widget.activities.length}',
+                      style: Theme.of(context).textTheme.headlineSmall),
                   const SizedBox(height: 8),
                   Text(
                     'Last Updated: ${Jiffy.parse(widget.activities.first.finishTime.toString()).fromNow()}',
@@ -262,7 +274,8 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
               itemCount: widget.activities.length,
               itemBuilder: (context, index) {
                 // Helper method for time information rows
-                Widget buildTimeInfo(BuildContext context, IconData icon, String label, String time, Color iconColor) {
+                Widget buildTimeInfo(BuildContext context, IconData icon,
+                    String label, String time, Color iconColor) {
                   return Row(
                     children: [
                       Icon(icon, size: 20, color: iconColor),
@@ -272,15 +285,23 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                         children: [
                           Text(
                             label,
-                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.secondary,
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelMedium
+                                ?.copyWith(
+                                  color:
+                                      Theme.of(context).colorScheme.secondary,
                                 ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             time,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurface,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
                                 ),
                           ),
                         ],
@@ -298,12 +319,14 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                         builder: (context) {
                           return AlertDialog(
                             title: const Text('Delete this activity?'),
-                            content: const Text('This action cannot be undone.'),
+                            content:
+                                const Text('This action cannot be undone.'),
                             actions: [
                               TextButton(
                                 onPressed: () async {
                                   //delete this activity
-                                  await databaseActivitiesProvider.deleteActivity(activity);
+                                  await databaseActivitiesProvider
+                                      .deleteActivity(activity);
                                   Navigator.of(context).pop();
                                   destroyThisCard(activity);
                                 },
@@ -321,12 +344,14 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                       );
                     },
                     child: Card(
-                      margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      margin: const EdgeInsets.symmetric(
+                          vertical: 12, horizontal: 16),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(5),
                         side: BorderSide(
-                          color: themeProvider.themeData.colorScheme.primary.withOpacity(0.2),
+                          color: themeProvider.themeData.colorScheme.primary
+                              .withOpacity(0.2),
                           width: 1,
                         ),
                       ),
@@ -342,23 +367,36 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                                 Expanded(
                                   child: Text(
                                     activity.title,
-                                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge
+                                        ?.copyWith(
                                           fontWeight: FontWeight.w600,
-                                          color: Theme.of(context).colorScheme.onSurface,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface,
                                         ),
                                     softWrap: true,
                                   ),
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 6),
                                   decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.primaryContainer,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primaryContainer,
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Text(
                                     '${activity.finishTime.difference(activity.startTime).inMinutes} min',
-                                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelMedium
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onPrimaryContainer,
                                           fontWeight: FontWeight.w500,
                                         ),
                                   ),
@@ -372,7 +410,8 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                               context,
                               Icons.play_circle_outlined,
                               'Started',
-                              Jiffy.parse(activity.startTime.toString()).format(pattern: 'dd/MM/yyyy h:mm a'),
+                              Jiffy.parse(activity.startTime.toString())
+                                  .format(pattern: 'dd/MM/yyyy h:mm a'),
                               Colors.blue,
                             ),
                             const SizedBox(height: 12),
@@ -381,7 +420,8 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                               context,
                               Icons.check_circle_outline,
                               'Finished',
-                              Jiffy.parse(activity.finishTime.toString()).format(pattern: 'dd/MM/yyyy h:mm a'),
+                              Jiffy.parse(activity.finishTime.toString())
+                                  .format(pattern: 'dd/MM/yyyy h:mm a'),
                               Colors.green,
                             ),
                             const SizedBox(height: 12),
@@ -405,24 +445,36 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                                   Icon(
                                     Icons.description_outlined,
                                     size: 20,
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           'Description',
-                                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                                color: Theme.of(context).colorScheme.secondary,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelMedium
+                                              ?.copyWith(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .secondary,
                                               ),
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
                                           activity.description!,
-                                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                                color: Theme.of(context).colorScheme.onSurface,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurface,
                                               ),
                                         ),
                                       ],
@@ -435,9 +487,12 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                             const SizedBox(height: 12),
                             // Category section at bottom
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
@@ -446,13 +501,19 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                                   Icon(
                                     Icons.label_outline,
                                     size: 18,
-                                    color: Theme.of(context).colorScheme.secondary,
+                                    color:
+                                        Theme.of(context).colorScheme.secondary,
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
                                     activity.category.toString(),
-                                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelMedium
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
                                           fontWeight: FontWeight.w500,
                                         ),
                                   ),
@@ -474,12 +535,15 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
         onPressed: () {
           Navigator.of(context).push(
             PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) => AddActivityScreen(groupTitle: widget.groupTitle),
-              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  AddActivityScreen(groupTitle: widget.groupTitle),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
                 var begin = const Offset(0.0, 1.0);
                 var end = Offset.zero;
                 var curve = Curves.linearToEaseOut;
-                var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                var tween = Tween(begin: begin, end: end)
+                    .chain(CurveTween(curve: curve));
                 var offsetAnimation = animation.drive(tween);
 
                 return SlideTransition(
