@@ -110,7 +110,8 @@ class DatabaseActivities extends ChangeNotifier {
         log('Upgrading database from version $oldVersion to $newVersion');
         if (oldVersion < 2) {
           // Add description column to existing table
-          await db.execute('ALTER TABLE activities ADD COLUMN description TEXT');
+          await db
+              .execute('ALTER TABLE activities ADD COLUMN description TEXT');
         }
         if (oldVersion < 3) {
           // Create folders table
@@ -122,18 +123,68 @@ class DatabaseActivities extends ChangeNotifier {
               FOREIGN KEY (parentFolderId) REFERENCES folders(id)
             )
           ''');
-          
-          // Add new columns to activities table
-          await db.execute('ALTER TABLE activities ADD COLUMN minutesSpent INTEGER NOT NULL DEFAULT 0');
-          await db.execute('ALTER TABLE activities ADD COLUMN parentFolderId INTEGER');
-          await db.execute('ALTER TABLE activities ADD FOREIGN KEY (parentFolderId) REFERENCES folders(id)');
+
+          // Create a temporary table with the new schema
+          await db.execute('''
+            CREATE TABLE activities_new(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              title TEXT NOT NULL,
+              groupTitle TEXT NOT NULL,
+              startTime TEXT NOT NULL,
+              estimatedEndTime TEXT NOT NULL,
+              finishTime TEXT NOT NULL,
+              category TEXT NOT NULL,
+              description TEXT,
+              minutesSpent INTEGER NOT NULL DEFAULT 0,
+              parentFolderId INTEGER,
+              FOREIGN KEY (parentFolderId) REFERENCES folders(id)
+            )
+          ''');
+
+          // Copy data from old table to new table
+          await db.execute('''
+            INSERT INTO activities_new 
+            SELECT id, title, groupTitle, startTime, estimatedEndTime, finishTime, 
+                   category, description, 0 as minutesSpent, 1 as parentFolderId
+            FROM activities
+          ''');
+
+          // Drop the old table
+          await db.execute('DROP TABLE activities');
+
+          // Rename the new table to the original name
+          await db.execute('ALTER TABLE activities_new RENAME TO activities');
+
+          // Create a folder called root if it doesn't exist
+          await db.execute(
+            '''INSERT OR IGNORE INTO folders (id, name) VALUES (1, 'root')''',
+          );
         }
       },
     );
   }
 
-
 //! methods for debugging
+
+//logging activities in db for cheching their parent folder:
+  Future<void> logParents() async {
+    log('Here are the activites and the names of the folder to which they belong');
+    final db = await database;
+    final List<Map<String, dynamic>> activitiesInDb =
+        await db.query('activities');
+    for (var activity in activitiesInDb) {
+      final parentFolder = await db.query(
+        'folders',
+        columns: ['name'],
+        where: 'id = ?',
+        whereArgs: [activity['parentFolderId']],
+      );
+      final parentFolderName =
+          parentFolder.isNotEmpty ? parentFolder.first['name'] : 'root';
+      log('Activity: ${activity['title']}, Parent Folder ID: ${activity['parentFolderId']}, Parent Folder Name: $parentFolderName');
+    }
+  }
+
   //method to get all folders on the root level
   Future<List<Map<String, dynamic>>> getRootFolders() async {
     final db = await database;
@@ -143,13 +194,15 @@ class DatabaseActivities extends ChangeNotifier {
   //method to get all folders in a folder
   Future<List<Map<String, dynamic>>> getFoldersInFolder(int folderId) async {
     final db = await database;
-    return await db.query('folders', where: 'parentFolderId = ?', whereArgs: [folderId]);
+    return await db
+        .query('folders', where: 'parentFolderId = ?', whereArgs: [folderId]);
   }
 
   //method to get all activities in a folder
   Future<List<Map<String, dynamic>>> getActivitiesInFolder(int folderId) async {
     final db = await database;
-    return await db.query('activities', where: 'parentFolderId = ?', whereArgs: [folderId]);
+    return await db.query('activities',
+        where: 'parentFolderId = ?', whereArgs: [folderId]);
   }
 
   //method to get all activities in the database
@@ -158,6 +211,11 @@ class DatabaseActivities extends ChangeNotifier {
     return await db.query('activities');
   }
 
+  //method to get all folders in the database
+  Future<List<Map<String, dynamic>>> getAllFolders() async {
+    final db = await database;
+    return await db.query('folders');
+  }
 
   // Add a new activity to the database
   Future<void> doneActivity(DoneActivity activity) async {
@@ -321,12 +379,15 @@ class DatabaseActivities extends ChangeNotifier {
     final db = await database;
     return await db.query(
       'folders',
-      where: parentFolderId == null ? 'parentFolderId IS NULL' : 'parentFolderId = ?',
+      where: parentFolderId == null
+          ? 'parentFolderId IS NULL'
+          : 'parentFolderId = ?',
       whereArgs: parentFolderId == null ? [] : [parentFolderId],
     );
   }
 
-  Future<void> updateActivityMinutes(DoneActivity activity, int minutesSpent) async {
+  Future<void> updateActivityMinutes(
+      DoneActivity activity, int minutesSpent) async {
     final db = await database;
     await db.update(
       'activities',
@@ -338,7 +399,7 @@ class DatabaseActivities extends ChangeNotifier {
         activity.estimatedEndTime.toIso8601String()
       ],
     );
-    
+
     // Update the local activity
     final index = activities.indexWhere((act) =>
         act.title == activity.title &&
@@ -360,7 +421,8 @@ class DatabaseActivities extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> moveActivityToFolder(DoneActivity activity, int? folderId) async {
+  Future<void> moveActivityToFolder(
+      DoneActivity activity, int? folderId) async {
     final db = await database;
     await db.update(
       'activities',
@@ -372,7 +434,7 @@ class DatabaseActivities extends ChangeNotifier {
         activity.estimatedEndTime.toIso8601String()
       ],
     );
-    
+
     // Update the local activity
     final index = activities.indexWhere((act) =>
         act.title == activity.title &&

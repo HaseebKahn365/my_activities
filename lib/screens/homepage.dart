@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:my_activities/screens/active_activities.dart';
+import 'package:my_activities/screens/folder_screen.dart';
 import 'package:my_activities/screens/groups.dart';
 import 'package:my_activities/screens/summary.dart';
 import 'package:provider/provider.dart';
@@ -43,6 +44,9 @@ class _MyHomePageState extends State<MyHomePage> {
         return const DoneActivitiesScreen();
       case 2:
         return const SummaryScreen();
+
+      case 3:
+        return const FolderScreen();
       default:
         return const Text('Unknown');
     }
@@ -56,6 +60,8 @@ class _MyHomePageState extends State<MyHomePage> {
         return const Text('Groups');
       case 2:
         return const Text('Summary');
+      case 3:
+        return const Text('Folders');
       default:
         return const Text('Unknown');
     }
@@ -73,11 +79,19 @@ class _MyHomePageState extends State<MyHomePage> {
             actions: [
 //lets add a switch for dark and light mode
               IconButton(
-                icon: Icon(themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode),
+                icon: Icon(themeProvider.isDarkMode
+                    ? Icons.light_mode
+                    : Icons.dark_mode),
                 onPressed: () {
                   themeProvider.toggleTheme();
                 },
               ),
+              //another acction for debugging
+              IconButton(
+                  onPressed: () async {
+                    // await databaseActivitiesProvider.loadFromDb();
+                  },
+                  icon: const Icon(Icons.code)),
               PopupMenuButton(
                 itemBuilder: (context) {
                   return [
@@ -139,6 +153,13 @@ class _MyHomePageState extends State<MyHomePage> {
                 selectedIcon: Icon(Icons.summarize),
                 label: 'Summary',
               ),
+
+              //another one for folders
+              NavigationDestination(
+                icon: Icon(Icons.folder_open_outlined),
+                selectedIcon: Icon(Icons.folder),
+                label: 'Folders',
+              )
             ],
           ),
         ),
