@@ -11,6 +11,7 @@ enum Category { w, s, m, l }
 final themeProvider = ThemeProvider();
 final sharedPrefActivitiesProvider = SharedPrefActivities();
 final databaseActivitiesProvider = DatabaseActivities();
+final folderProvider = FolderProvider();
 
 //now we need to also take and optional parameter of description for done activity into account
 
@@ -287,5 +288,52 @@ class DatabaseActivities extends ChangeNotifier {
         where: 'id = ?',
         whereArgs: [folderId]);
     notifyListeners();
+  }
+}
+
+class FolderProvider extends ChangeNotifier {
+  List<Map<String, dynamic>> folders = [];
+
+  Future<void> loadFolders() async {
+    final db = await databaseActivitiesProvider.database;
+    final List<Map<String, dynamic>> maps = await db.query('folders');
+    folders = maps;
+    notifyListeners();
+  }
+
+  Future<void> addFolder(String name, {int? parentFolderId}) async {
+    await databaseActivitiesProvider.createFolder(name,
+        parentFolderId: parentFolderId);
+    await loadFolders();
+  }
+
+  Future<void> goToActivity(int activityId) async {}
+  Future<void> deleteFolder(int folderId) async {
+    await databaseActivitiesProvider.deleteFolder(folderId);
+    await loadFolders();
+  }
+
+  Future<void> renameFolder(int folderId, String newName) async {
+    await databaseActivitiesProvider.renameFolder(folderId, newName);
+    await loadFolders();
+  }
+
+  Future<void> pinFolder(int folderId, bool isPinned) async {
+    await databaseActivitiesProvider.pinFolder(folderId, isPinned);
+    await loadFolders();
+  }
+
+  Future<void> getFolderPath(int folderId) async {
+    final path = await databaseActivitiesProvider.getFolderPathById(folderId);
+    log('Folder path: $path');
+  }
+
+  Future<void> getActivitiesByFolderId(int folderId) async {
+    final db = await databaseActivitiesProvider.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'activities',
+      where: 'folderId = ?',
+      whereArgs: [folderId],
+    );
   }
 }

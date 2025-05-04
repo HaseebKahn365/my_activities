@@ -23,6 +23,7 @@ class MyApp extends StatelessWidget {
           ChangeNotifierProvider.value(value: themeProvider),
           ChangeNotifierProvider.value(value: sharedPrefActivitiesProvider),
           ChangeNotifierProvider.value(value: databaseActivitiesProvider),
+          ChangeNotifierProvider.value(value: folderProvider),
         ],
         child: MaterialApp(
           debugShowCheckedModeBanner: false,

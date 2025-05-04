@@ -87,6 +87,14 @@ class _MyHomePageState extends State<MyHomePage> {
                   themeProvider.toggleTheme();
                 },
               ),
+
+              //a pin icon for showing the pinned folders
+              IconButton(
+                icon: const Icon(Icons.pix_outlined),
+                onPressed: () {
+                  //show pinned folders
+                },
+              ),
               PopupMenuButton(
                 itemBuilder: (context) {
                   return [

@@ -1,4 +1,3 @@
-
 /*
 Creating a folder provider that will simplify the process of creating, combining, deleting, renaming folders and creating subfolders.
 along with these we should also be able to pin folders.
@@ -64,15 +63,44 @@ Logic for adding an activity to a folder:
 
 
 
+*/
 
+/*
 
+we must create a folder provider to manage the folder screen state and the folder database.
+Working on the ui of the folder screen.
 
+lets create a folder screen to show the folders and their activities or subfolders.
 
+the default view should display the root directory with the following appearance:
 
+at the top should be the path of the current folder. and after it will be an icon button to add a new folder.
+
+after it in the center will be the name of the current folder (if any) and the number of activities inside it.
+
+then there will be two sections for the folders and the activities.
+
+Folders section:
+it will contain a list of folders inside the current folder.
+a list view containing list tiles with names of the folder and 3 verrtical dots icon to show a popup menu with the following options:
+- rename folder
+- delete folder
+- pin folder
+- unpin folder
+
+Activities section:
+- it will contain a list of activities inside the current folder.
+- a list view containing list tiles with names of the activities and an icon button to show details.
+we can add a popup menu to show the following options:
+- view details
+- edit activity
+- delete activity
+- move activity to another folder
 
 
 
 */
+
 import 'package:flutter/material.dart';
 
 class FolderScreen extends StatelessWidget {
@@ -80,11 +108,8 @@ class FolderScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Folders'),
-      ),
-      body: const Center(
+    return const Scaffold(
+      body: Center(
         child: Text('This is the Folders screen'),
       ),
     );
