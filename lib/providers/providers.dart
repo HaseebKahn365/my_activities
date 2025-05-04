@@ -2,6 +2,7 @@ import 'dart:developer';
 
 import 'package:flutter/foundation.dart';
 import 'package:my_activities/screens/active_activities.dart';
+import 'package:my_activities/screens/folder_screen.dart';
 import 'package:my_activities/screens/homepage.dart';
 import 'package:path/path.dart' as pathProvider;
 import 'package:sqflite/sqflite.dart';
@@ -24,7 +25,7 @@ class DoneActivity {
   final Category category;
   final String? description;
   final int prodSecs;
-  final int? folderId; // Add folderId to associate with a folder
+  int? folderId; // Add folderId to associate with a folder
 
   DoneActivity({
     required this.title,
@@ -215,6 +216,20 @@ class DatabaseActivities extends ChangeNotifier {
     }
   }
 
+  //drop x activity into y folder
+  Future<void> moveActivityToFolder(DoneActivity activity, int folderId) async {
+    log('Moving activity: ${activity.title} to folderId: $folderId');
+    final db = await database;
+    await db.update(
+      'activities',
+      {'folderId': folderId},
+      where: 'title = ? AND groupTitle = ?',
+      whereArgs: [activity.title, activity.groupTitle],
+    );
+    activity.folderId = folderId; // Update the activity's folderId
+    notifyListeners();
+  }
+
   // Print all activities
 
   void printActivities() {
@@ -247,6 +262,15 @@ class DatabaseActivities extends ChangeNotifier {
         act.title == activity.title &&
         act.groupTitle == activity.groupTitle &&
         act.estimatedEndTime.isAtSameMomentAs(activity.estimatedEndTime));
+    notifyListeners();
+  }
+
+  //! methods for folders
+
+  //dellete all folders
+  Future<void> deleteAllFolders() async {
+    final db = await database;
+    await db.delete('folders');
     notifyListeners();
   }
 
@@ -288,52 +312,5 @@ class DatabaseActivities extends ChangeNotifier {
         where: 'id = ?',
         whereArgs: [folderId]);
     notifyListeners();
-  }
-}
-
-class FolderProvider extends ChangeNotifier {
-  List<Map<String, dynamic>> folders = [];
-
-  Future<void> loadFolders() async {
-    final db = await databaseActivitiesProvider.database;
-    final List<Map<String, dynamic>> maps = await db.query('folders');
-    folders = maps;
-    notifyListeners();
-  }
-
-  Future<void> addFolder(String name, {int? parentFolderId}) async {
-    await databaseActivitiesProvider.createFolder(name,
-        parentFolderId: parentFolderId);
-    await loadFolders();
-  }
-
-  Future<void> goToActivity(int activityId) async {}
-  Future<void> deleteFolder(int folderId) async {
-    await databaseActivitiesProvider.deleteFolder(folderId);
-    await loadFolders();
-  }
-
-  Future<void> renameFolder(int folderId, String newName) async {
-    await databaseActivitiesProvider.renameFolder(folderId, newName);
-    await loadFolders();
-  }
-
-  Future<void> pinFolder(int folderId, bool isPinned) async {
-    await databaseActivitiesProvider.pinFolder(folderId, isPinned);
-    await loadFolders();
-  }
-
-  Future<void> getFolderPath(int folderId) async {
-    final path = await databaseActivitiesProvider.getFolderPathById(folderId);
-    log('Folder path: $path');
-  }
-
-  Future<void> getActivitiesByFolderId(int folderId) async {
-    final db = await databaseActivitiesProvider.database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'activities',
-      where: 'folderId = ?',
-      whereArgs: [folderId],
-    );
   }
 }
