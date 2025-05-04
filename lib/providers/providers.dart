@@ -2,7 +2,6 @@ import 'dart:developer';
 
 import 'package:flutter/foundation.dart';
 import 'package:my_activities/screens/active_activities.dart';
-import 'package:my_activities/screens/folder_screen.dart';
 import 'package:my_activities/screens/homepage.dart';
 import 'package:path/path.dart' as pathProvider;
 import 'package:sqflite/sqflite.dart';
@@ -12,7 +11,7 @@ enum Category { w, s, m, l }
 final themeProvider = ThemeProvider();
 final sharedPrefActivitiesProvider = SharedPrefActivities();
 final databaseActivitiesProvider = DatabaseActivities();
-final folderProvider = FolderProvider();
+// final folderProvider = FolderProvider();
 
 //now we need to also take and optional parameter of description for done activity into account
 

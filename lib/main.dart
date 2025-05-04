@@ -10,7 +10,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await sharedPrefActivitiesProvider.loadActivities();
   await databaseActivitiesProvider.loadFromDb();
-  await folderProvider.init();
+  // await folderProvider.init();
   runApp(const MyApp());
 }
 
@@ -24,7 +24,7 @@ class MyApp extends StatelessWidget {
           ChangeNotifierProvider.value(value: themeProvider),
           ChangeNotifierProvider.value(value: sharedPrefActivitiesProvider),
           ChangeNotifierProvider.value(value: databaseActivitiesProvider),
-          ChangeNotifierProvider.value(value: folderProvider),
+          // ChangeNotifierProvider.value(value: folderProvider),
         ],
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
