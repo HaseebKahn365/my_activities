@@ -22,6 +22,7 @@ class DoneActivity {
   final DateTime finishTime;
   final Category category;
   final String? description;
+  final int prodSecs;
 
   DoneActivity({
     required this.title,
@@ -31,6 +32,7 @@ class DoneActivity {
     required this.finishTime,
     required this.category,
     this.description,
+    required this.prodSecs,
   });
 }
 
@@ -49,7 +51,7 @@ class DatabaseActivities extends ChangeNotifier {
     String path = pathProvider.join(await getDatabasesPath(), 'activities.db');
     return await openDatabase(
       path,
-      version: 2, // Increment version number
+      version: 1, // Increment version number
       onCreate: (Database db, int version) async {
         await db.execute('''
           CREATE TABLE activities(
@@ -60,16 +62,10 @@ class DatabaseActivities extends ChangeNotifier {
             estimatedEndTime TEXT NOT NULL,
             finishTime TEXT NOT NULL,
             category TEXT NOT NULL,
-            description TEXT
+            description TEXT,
+            prodSecs INTEGER NOT NULL
           )
         ''');
-      },
-      onUpgrade: (Database db, int oldVersion, int newVersion) async {
-        log('Upgrading database from version $oldVersion to $newVersion');
-        if (oldVersion < 2) {
-          // Add description column to existing table
-          await db.execute('ALTER TABLE activities ADD COLUMN description TEXT');
-        }
       },
     );
   }
@@ -88,6 +84,7 @@ class DatabaseActivities extends ChangeNotifier {
         'finishTime': activity.finishTime.toIso8601String(),
         'category': activity.category.toString(),
         'description': activity.description,
+        'prodSecs': activity.prodSecs,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
@@ -115,6 +112,7 @@ class DatabaseActivities extends ChangeNotifier {
                 orElse: () => Category.w,
               ),
               description: map['description'],
+              prodSecs: map['prodSecs'] ?? 0,
             ))
         .toList();
     printActivities();
@@ -140,6 +138,7 @@ class DatabaseActivities extends ChangeNotifier {
               finishTime: DateTime.parse(map['finishTime']),
               category: getCategory(map['category']),
               description: map['description'],
+              prodSecs: map['prodSecs'],
             ))
         .toList();
   }
@@ -172,7 +171,8 @@ class DatabaseActivities extends ChangeNotifier {
   Future<void> deleteActivitiesByGroupTitle(String groupTitle) async {
     log('Deleting activities with group title: $groupTitle');
     final db = await database;
-    await db.delete('activities', where: 'groupTitle = ?', whereArgs: [groupTitle]);
+    await db
+        .delete('activities', where: 'groupTitle = ?', whereArgs: [groupTitle]);
     activities.removeWhere((activity) => activity.groupTitle == groupTitle);
     notifyListeners();
   }
@@ -180,8 +180,17 @@ class DatabaseActivities extends ChangeNotifier {
   Future<void> deleteActivity(DoneActivity activity) async {
     log('Deleting activity: ${activity.title}');
     final db = await database;
-    await db.delete('activities', where: 'groupTitle = ? AND title = ? AND estimatedEndTime = ?', whereArgs: [activity.groupTitle, activity.title, activity.estimatedEndTime.toIso8601String()]);
-    activities.removeWhere((act) => act.title == activity.title && act.groupTitle == activity.groupTitle && act.estimatedEndTime.isAtSameMomentAs(activity.estimatedEndTime));
+    await db.delete('activities',
+        where: 'groupTitle = ? AND title = ? AND estimatedEndTime = ?',
+        whereArgs: [
+          activity.groupTitle,
+          activity.title,
+          activity.estimatedEndTime.toIso8601String()
+        ]);
+    activities.removeWhere((act) =>
+        act.title == activity.title &&
+        act.groupTitle == activity.groupTitle &&
+        act.estimatedEndTime.isAtSameMomentAs(activity.estimatedEndTime));
     notifyListeners();
   }
 }

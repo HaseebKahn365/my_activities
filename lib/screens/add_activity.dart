@@ -24,8 +24,10 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
   final DateTime _startTime = DateTime.now();
   DateTime _estimatedEndTime = DateTime.now().add(const Duration(hours: 1));
   Category _selectedCategory = Category.s;
-  final activeGroups = sharedPrefActivitiesProvider.activities.map((e) => e.groupTitle).toSet();
-  final doneGroups = databaseActivitiesProvider.activities.map((e) => e.groupTitle).toSet();
+  final activeGroups =
+      sharedPrefActivitiesProvider.activities.map((e) => e.groupTitle).toSet();
+  final doneGroups =
+      databaseActivitiesProvider.activities.map((e) => e.groupTitle).toSet();
   String _description = '';
 
   // Add this helper method in the class
@@ -74,7 +76,8 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                     FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s]')),
                   ],
                   onChanged: (value) {
-                    final cleanedText = value.replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), '');
+                    final cleanedText =
+                        value.replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), '');
                     if (value != cleanedText) {
                       _titleController.text = cleanedText;
                       _titleController.selection = TextSelection.fromPosition(
@@ -97,15 +100,19 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                       return const Iterable<String>.empty();
                     }
                     return allGroups.where(
-                      (group) => group.toLowerCase().contains(textEditingValue.text.toLowerCase()),
+                      (group) => group
+                          .toLowerCase()
+                          .contains(textEditingValue.text.toLowerCase()),
                     );
                   },
                   onSelected: (String selection) {
                     setState(() {
-                      _groupTitleController.text = selection; // Synchronize controller manually here
+                      _groupTitleController.text =
+                          selection; // Synchronize controller manually here
                     });
                   },
-                  fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
+                  fieldViewBuilder: (context, textEditingController, focusNode,
+                      onFieldSubmitted) {
                     // Synchronize the controllers
                     final preFilledGroupTitle = widget.groupTitle;
                     textEditingController.text = _groupTitleController.text;
@@ -118,21 +125,26 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                         border: const OutlineInputBorder(),
                       ),
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s]+')),
+                        FilteringTextInputFormatter.allow(
+                            RegExp(r'[a-zA-Z0-9\s]+')),
                       ],
                       onChanged: (value) {
-                        final cleanedText = value.replaceAll(RegExp(r'[^a-zA-Z0-9\s]+'), '');
+                        final cleanedText =
+                            value.replaceAll(RegExp(r'[^a-zA-Z0-9\s]+'), '');
                         if (value != cleanedText) {
                           textEditingController.text = cleanedText;
-                          textEditingController.selection = TextSelection.fromPosition(
+                          textEditingController.selection =
+                              TextSelection.fromPosition(
                             TextPosition(offset: cleanedText.length),
                           );
                         }
                         setState(() {
-                          _groupTitleController.text = cleanedText; // Update the controller's value here
+                          _groupTitleController.text =
+                              cleanedText; // Update the controller's value here
                         });
                       },
-                      enabled: widget.groupTitle == null, // Disable if groupTitle is prefilled
+                      enabled: widget.groupTitle ==
+                          null, // Disable if groupTitle is prefilled
                     );
                   },
                   optionsViewBuilder: (context, onSelected, options) {
@@ -142,7 +154,8 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                         margin: const EdgeInsets.only(top: 15, right: 30),
                         decoration: BoxDecoration(
                           color: Theme.of(context).colorScheme.surface,
-                          border: Border.all(color: Theme.of(context).colorScheme.primary),
+                          border: Border.all(
+                              color: Theme.of(context).colorScheme.primary),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: ConstrainedBox(
@@ -169,8 +182,10 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                 ListTile(
                   //dd-MM-yyyy hh:mm a lets use jiffy to format the date
                   //show (timeago from now using jiffy)
-                  title: Text('Estimated End Time (${_formatTimeRemaining(_estimatedEndTime)})'),
-                  subtitle: Text(Jiffy.parse(_estimatedEndTime.toString()).yMMMMdjm),
+                  title: Text(
+                      'Estimated End Time (${_formatTimeRemaining(_estimatedEndTime)})'),
+                  subtitle:
+                      Text(Jiffy.parse(_estimatedEndTime.toString()).yMMMMdjm),
                 ),
                 const SizedBox(height: 16.0),
                 Container(
@@ -198,24 +213,32 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                     segments: <ButtonSegment<Category>>[
                       ButtonSegment<Category>(
                         value: Category.w,
-                        icon: _selectedCategory == Category.w ? const Icon(Icons.work) : null,
+                        icon: _selectedCategory == Category.w
+                            ? const Icon(Icons.work)
+                            : null,
                         label: const Text('W'),
                       ),
                       ButtonSegment<Category>(
                         value: Category.s,
-                        icon: _selectedCategory == Category.s ? const Icon(Icons.person) : null,
+                        icon: _selectedCategory == Category.s
+                            ? const Icon(Icons.person)
+                            : null,
                         label: const Text('S'),
                       ),
                       ButtonSegment<Category>(
                         value: Category.m,
-                        icon: _selectedCategory == Category.m ? const Icon(Icons.medical_services) : null,
+                        icon: _selectedCategory == Category.m
+                            ? const Icon(Icons.medical_services)
+                            : null,
                         label: const Text('M'),
                       ),
 
                       //one for l
                       ButtonSegment<Category>(
                         value: Category.l,
-                        icon: _selectedCategory == Category.l ? const Icon(Icons.local_activity) : null,
+                        icon: _selectedCategory == Category.l
+                            ? const Icon(Icons.local_activity)
+                            : null,
                         label: const Text('L'),
                       ),
                     ],
@@ -229,7 +252,9 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                       backgroundColor: WidgetStateProperty.resolveWith<Color>(
                         (Set<WidgetState> states) {
                           if (states.contains(WidgetState.selected)) {
-                            return Theme.of(context).colorScheme.primaryContainer;
+                            return Theme.of(context)
+                                .colorScheme
+                                .primaryContainer;
                           }
                           return Theme.of(context).colorScheme.surface;
                         },
@@ -254,13 +279,16 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                         ),
                         maxLines: 3,
                         inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s]')),
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[a-zA-Z0-9\s]')),
                         ],
                         onChanged: (value) {
-                          final cleanedText = value.replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), '');
+                          final cleanedText =
+                              value.replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), '');
                           if (value != cleanedText) {
                             descriptionController.text = cleanedText;
-                            descriptionController.selection = TextSelection.fromPosition(
+                            descriptionController.selection =
+                                TextSelection.fromPosition(
                               TextPosition(offset: cleanedText.length),
                             );
                           }
@@ -282,11 +310,13 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                     if (_formKey.currentState!.validate()) {
                       final newActivity = ActiveActivity(
                         title: _titleController.text,
-                        groupTitle: widget.groupTitle ?? _groupTitleController.text,
+                        groupTitle:
+                            widget.groupTitle ?? _groupTitleController.text,
                         startTime: _startTime,
                         estimatedEndTime: _estimatedEndTime,
                         category: _selectedCategory,
                         description: _description,
+                        prodSecs: 0,
                       );
                       sharedPrefActivitiesProvider.addActivity(newActivity);
                       Navigator.pop(context);

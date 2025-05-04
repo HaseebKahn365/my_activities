@@ -12,11 +12,13 @@ class ActiveActivity {
   final String title;
   String groupTitle;
   final DateTime startTime;
+  final int prodSecs;
   final DateTime estimatedEndTime;
   final Category category;
   String? description;
 
   ActiveActivity({
+    required this.prodSecs,
     required this.title,
     required this.groupTitle,
     required this.startTime,
@@ -33,7 +35,7 @@ class ActiveActivity {
     final startTime = this.startTime.millisecondsSinceEpoch;
     final estimatedEndTime = this.estimatedEndTime.millisecondsSinceEpoch;
     final description = this.description ?? '';
-    return '$title,$groupTitle,$startTime,$estimatedEndTime,${category.index},$description@';
+    return '$title,$groupTitle,$startTime,$estimatedEndTime,${category.index},$description,$prodSecs@';
   }
 
   // Factory constructor for creating ActiveActivity from string making sure to use @ as the delimiter
@@ -47,7 +49,9 @@ class ActiveActivity {
     final startTime = DateTime.fromMillisecondsSinceEpoch(startMSE);
     final estimatedEndTime = DateTime.fromMillisecondsSinceEpoch(endMSE);
     final category = Category.values[int.parse(parts[4].substring(0, 1))];
-    final description = parts[5].substring(0, parts[5].length - 1);
+    final description =
+        parts[5].isNotEmpty ? parts[5].substring(0, parts[5].length - 1) : '';
+    final prodSecs = int.parse(parts[6].replaceAll('@', '').trim());
     return ActiveActivity(
       title: title,
       groupTitle: groupTitle,
@@ -55,6 +59,7 @@ class ActiveActivity {
       estimatedEndTime: estimatedEndTime,
       category: category,
       description: description,
+      prodSecs: prodSecs,
     );
   }
 }
@@ -84,12 +89,30 @@ class SharedPrefActivities extends ChangeNotifier {
     notifyListeners();
   }
 
+  //update activity method after every 3 seconds and save to shared preferences
+
+  void updateActivity(ActiveActivity activity) {
+    //match based on the title and group title
+    final index = activities.indexWhere(
+      (a) => a.title == activity.title && a.groupTitle == activity.groupTitle,
+    );
+    if (index != -1) {
+      activities[index] = activity;
+      saveActivities();
+      log('Activity updated: ${activity.title}');
+      notifyListeners();
+    } else {
+      log('Activity not found for update: ${activity.title}');
+    }
+  }
+
   int get count => activities.length;
 
   // Optional: Method to simulate saving to shared preferences by converting to strings
   Future<void> saveActivities() async {
     //properly save the activities to shared preferences
-    final List<String> savedActivities = activities.map((activity) => activity.toStr()).toList();
+    final List<String> savedActivities =
+        activities.map((activity) => activity.toStr()).toList();
     log('Saved activities: $savedActivities');
     await _prefs!.setStringList('activities', savedActivities);
   }
@@ -101,7 +124,8 @@ class SharedPrefActivities extends ChangeNotifier {
     final List<String>? savedActivities = _prefs!.getStringList('activities');
     log('Loaded activities: $savedActivities');
     if (savedActivities != null) {
-      activities = savedActivities.map((str) => ActiveActivity.fromStr(str)).toList();
+      activities =
+          savedActivities.map((str) => ActiveActivity.fromStr(str)).toList();
     }
 
     notifyListeners();
@@ -146,6 +170,7 @@ class ActiveActivitiesScreen extends StatelessWidget {
                           finishTime: DateTime.now(),
                           category: activity.category,
                           description: activity.description,
+                          prodSecs: activity.prodSecs,
                         );
                         await databaseActivitiesProvider.doneActivity(
                           doneActivity,
@@ -166,13 +191,16 @@ class ActiveActivitiesScreen extends StatelessWidget {
           Navigator.push(
             context,
             PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) => const AddActivityScreen(),
-              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  const AddActivityScreen(),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
                 const begin = Offset(0.0, 1.0);
                 const end = Offset.zero;
                 const curve = Curves.ease;
 
-                var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                var tween = Tween(begin: begin, end: end)
+                    .chain(CurveTween(curve: curve));
                 var offsetAnimation = animation.drive(tween);
 
                 return SlideTransition(
@@ -190,6 +218,9 @@ class ActiveActivitiesScreen extends StatelessWidget {
   }
 }
 
+//the code needs to be refactored in order to track the minutes that are spent on doing the productive work.
+//lets introduce a pause/play button
+
 class ActivityCard extends StatefulWidget {
   final ActiveActivity activity;
   final VoidCallback onRemove;
@@ -206,7 +237,8 @@ class ActivityCard extends StatefulWidget {
   State<ActivityCard> createState() => _ActivityCardState();
 }
 
-class _ActivityCardState extends State<ActivityCard> with SingleTickerProviderStateMixin {
+class _ActivityCardState extends State<ActivityCard>
+    with SingleTickerProviderStateMixin {
   Timer? _timer;
   late AnimationController _progressController;
   late Animation<double> _progressAnimation;
@@ -239,9 +271,26 @@ class _ActivityCardState extends State<ActivityCard> with SingleTickerProviderSt
   }
 
   void _startTimer() {
+    log('Timer started for activity: ${widget.activity.title}');
     _updateProgress();
     _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
       _updateProgress();
+      // Update the productive seconds by incrementing by 3 seconds
+      int newProdSecs = widget.activity.prodSecs + 3;
+
+      log('New productive seconds: $newProdSecs');
+      // Update the activity in the provider
+      final updatedActivity = ActiveActivity(
+        title: widget.activity.title,
+        groupTitle: widget.activity.groupTitle,
+        startTime: widget.activity.startTime,
+        estimatedEndTime: widget.activity.estimatedEndTime,
+        category: widget.activity.category,
+        description: widget.activity.description,
+        prodSecs: newProdSecs,
+      );
+      Provider.of<SharedPrefActivities>(context, listen: false)
+          .updateActivity(updatedActivity);
     });
   }
 
@@ -249,7 +298,9 @@ class _ActivityCardState extends State<ActivityCard> with SingleTickerProviderSt
     if (!mounted) return;
 
     final now = DateTime.now();
-    final total = widget.activity.estimatedEndTime.difference(widget.activity.startTime).inSeconds;
+    final total = widget.activity.estimatedEndTime
+        .difference(widget.activity.startTime)
+        .inSeconds;
     final elapsed = now.difference(widget.activity.startTime).inSeconds;
 
     _targetProgress = elapsed / total;
@@ -265,8 +316,18 @@ class _ActivityCardState extends State<ActivityCard> with SingleTickerProviderSt
         curve: Curves.easeInOut,
       ),
     );
+    setState(() {});
 
     _progressController.forward(from: 0);
+  }
+
+  void _handlePauseTimer() {
+    if (_timer != null) {
+      _timer!.cancel();
+      _timer = null;
+    } else {
+      _startTimer();
+    }
   }
 
   void _handleDone() {
@@ -278,6 +339,7 @@ class _ActivityCardState extends State<ActivityCard> with SingleTickerProviderSt
       finishTime: DateTime.now(),
       category: widget.activity.category,
       description: widget.activity.description,
+      prodSecs: widget.activity.prodSecs,
     );
     widget.onDone(doneActivity);
   }
@@ -285,7 +347,8 @@ class _ActivityCardState extends State<ActivityCard> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final timeLeft = widget.activity.estimatedEndTime.difference(DateTime.now());
+    final timeLeft =
+        widget.activity.estimatedEndTime.difference(DateTime.now());
 
     return Card(
       elevation: 0,
@@ -309,7 +372,9 @@ class _ActivityCardState extends State<ActivityCard> with SingleTickerProviderSt
                   value: _progressAnimation.value,
                   backgroundColor: colorScheme.surfaceContainerHighest,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    _targetProgress >= 1 ? themeProvider.themeData.colorScheme.error : colorScheme.primary,
+                    _targetProgress >= 1
+                        ? themeProvider.themeData.colorScheme.error
+                        : colorScheme.primary,
                   ),
                   minHeight: 6,
                 );
@@ -335,15 +400,20 @@ class _ActivityCardState extends State<ActivityCard> with SingleTickerProviderSt
                           const SizedBox(height: 4),
                           Text(
                             widget.activity.groupTitle,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.secondary,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color:
+                                      Theme.of(context).colorScheme.secondary,
                                 ),
                           ),
                         ],
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: colorScheme.primaryContainer,
                         borderRadius: BorderRadius.circular(16),
@@ -366,6 +436,12 @@ class _ActivityCardState extends State<ActivityCard> with SingleTickerProviderSt
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+                const SizedBox(height: 16),
+
+                PausePlayButton(
+                  onPressed: _handlePauseTimer,
+                ),
+
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -397,6 +473,67 @@ class _ActivityCardState extends State<ActivityCard> with SingleTickerProviderSt
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class PausePlayButton extends StatefulWidget {
+  final VoidCallback onPressed;
+  const PausePlayButton({
+    super.key,
+    required this.onPressed,
+  });
+
+  @override
+  State<PausePlayButton> createState() => _PausePlayButtonState();
+}
+
+class _PausePlayButtonState extends State<PausePlayButton> {
+  bool isPaused = false;
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      //a stylish pause.play button
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          setState(() {
+            isPaused = !isPaused;
+            log('isPaused: $isPaused');
+          });
+          widget.onPressed();
+        },
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+              border: Border.all(
+                color: isPaused
+                    ? Theme.of(context).colorScheme.primaryContainer
+                    : Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                width: 0.5,
+              ),
+              gradient: LinearGradient(
+                colors: isPaused
+                    ? [
+                        Theme.of(context).colorScheme.primaryContainer,
+                        Theme.of(context).colorScheme.primary
+                      ]
+                    : [
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                        Theme.of(context).colorScheme.surfaceContainerLowest,
+                        // Theme.of(context).colorScheme.primaryContainer
+                      ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12)),
+          child: Icon(
+            isPaused ? Icons.play_arrow : Icons.pause,
+            color: Theme.of(context).colorScheme.onPrimaryContainer,
+            size: 32,
+          ),
+        ),
       ),
     );
   }
