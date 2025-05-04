@@ -23,6 +23,7 @@ class DoneActivity {
   final Category category;
   final String? description;
   final int prodSecs;
+  final int? folderId; // Add folderId to associate with a folder
 
   DoneActivity({
     required this.title,
@@ -33,6 +34,7 @@ class DoneActivity {
     required this.category,
     this.description,
     required this.prodSecs,
+    this.folderId,
   });
 }
 
@@ -51,7 +53,7 @@ class DatabaseActivities extends ChangeNotifier {
     String path = pathProvider.join(await getDatabasesPath(), 'activities.db');
     return await openDatabase(
       path,
-      version: 1, // Increment version number
+      version: 2, // Increment version number
       onCreate: (Database db, int version) async {
         await db.execute('''
           CREATE TABLE activities(
@@ -63,9 +65,36 @@ class DatabaseActivities extends ChangeNotifier {
             finishTime TEXT NOT NULL,
             category TEXT NOT NULL,
             description TEXT,
-            prodSecs INTEGER NOT NULL
+            prodSecs INTEGER NOT NULL,
+            folderId INTEGER
           )
         ''');
+        await db.execute('''
+          CREATE TABLE folders(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            parentFolderId INTEGER,
+            isPinned INTEGER NOT NULL,
+            createdAt TEXT NOT NULL,
+            updatedAt TEXT NOT NULL
+          )
+        ''');
+      },
+      onUpgrade: (Database db, int oldVersion, int newVersion) async {
+        if (oldVersion < 2) {
+          await db
+              .execute('ALTER TABLE activities ADD COLUMN folderId INTEGER');
+          await db.execute('''
+            CREATE TABLE folders(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              parentFolderId INTEGER,
+              isPinned INTEGER NOT NULL,
+              createdAt TEXT NOT NULL,
+              updatedAt TEXT NOT NULL
+            )
+          ''');
+        }
       },
     );
   }
@@ -85,6 +114,7 @@ class DatabaseActivities extends ChangeNotifier {
         'category': activity.category.toString(),
         'description': activity.description,
         'prodSecs': activity.prodSecs,
+        'folderId': activity.folderId,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
@@ -113,6 +143,7 @@ class DatabaseActivities extends ChangeNotifier {
               ),
               description: map['description'],
               prodSecs: map['prodSecs'] ?? 0,
+              folderId: map['folderId'],
             ))
         .toList();
     printActivities();
@@ -139,6 +170,7 @@ class DatabaseActivities extends ChangeNotifier {
               category: getCategory(map['category']),
               description: map['description'],
               prodSecs: map['prodSecs'],
+              folderId: map['folderId'],
             ))
         .toList();
   }
@@ -191,6 +223,46 @@ class DatabaseActivities extends ChangeNotifier {
         act.title == activity.title &&
         act.groupTitle == activity.groupTitle &&
         act.estimatedEndTime.isAtSameMomentAs(activity.estimatedEndTime));
+    notifyListeners();
+  }
+
+  Future<void> createFolder(String name, {int? parentFolderId}) async {
+    final db = await database;
+    await db.insert('folders', {
+      'name': name,
+      'parentFolderId': parentFolderId,
+      'isPinned': 0,
+      'createdAt': DateTime.now().toIso8601String(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+    notifyListeners();
+  }
+
+  Future<void> deleteFolder(int folderId) async {
+    final db = await database;
+    await db.delete('folders', where: 'id = ?', whereArgs: [folderId]);
+    await db.delete('activities', where: 'folderId = ?', whereArgs: [folderId]);
+    notifyListeners();
+  }
+
+  Future<void> renameFolder(int folderId, String newName) async {
+    final db = await database;
+    await db.update('folders',
+        {'name': newName, 'updatedAt': DateTime.now().toIso8601String()},
+        where: 'id = ?', whereArgs: [folderId]);
+    notifyListeners();
+  }
+
+  Future<void> pinFolder(int folderId, bool isPinned) async {
+    final db = await database;
+    await db.update(
+        'folders',
+        {
+          'isPinned': isPinned ? 1 : 0,
+          'updatedAt': DateTime.now().toIso8601String()
+        },
+        where: 'id = ?',
+        whereArgs: [folderId]);
     notifyListeners();
   }
 }

@@ -16,6 +16,7 @@ class ActiveActivity {
   final DateTime estimatedEndTime;
   final Category category;
   String? description;
+  final int? folderId; // Add folderId to associate with a folder
 
   ActiveActivity({
     required this.prodSecs,
@@ -25,6 +26,7 @@ class ActiveActivity {
     required this.estimatedEndTime,
     required this.category,
     this.description,
+    this.folderId,
   });
 
   String toStr() {
@@ -35,7 +37,8 @@ class ActiveActivity {
     final startTime = this.startTime.millisecondsSinceEpoch;
     final estimatedEndTime = this.estimatedEndTime.millisecondsSinceEpoch;
     final description = this.description ?? '';
-    return '$title,$groupTitle,$startTime,$estimatedEndTime,${category.index},$description,$prodSecs@';
+    final folderId = this.folderId?.toString() ?? 'null';
+    return '$title,$groupTitle,$startTime,$estimatedEndTime,${category.index},$description,$prodSecs,$folderId@';
   }
 
   // Factory constructor for creating ActiveActivity from string making sure to use @ as the delimiter
@@ -52,6 +55,8 @@ class ActiveActivity {
     final description =
         parts[5].isNotEmpty ? parts[5].substring(0, parts[5].length - 1) : '';
     final prodSecs = int.parse(parts[6].replaceAll('@', '').trim());
+    final folderId =
+        parts.length > 7 && parts[7] != 'null' ? int.parse(parts[7]) : null;
     return ActiveActivity(
       title: title,
       groupTitle: groupTitle,
@@ -60,6 +65,7 @@ class ActiveActivity {
       category: category,
       description: description,
       prodSecs: prodSecs,
+      folderId: folderId,
     );
   }
 }
@@ -73,7 +79,7 @@ class SharedPrefActivities extends ChangeNotifier {
   // Track paused status for each activity
   final Map<String, bool> _pausedStates = {};
 
-  int get count => activities.length;  // Add back the count getter
+  int get count => activities.length; // Add back the count getter
 
   // Helper method to get a unique key for each activity
   String _getActivityKey(ActiveActivity activity) {
@@ -84,23 +90,23 @@ class SharedPrefActivities extends ChangeNotifier {
     activity.groupTitle = activity.groupTitle.trim();
     activities.insert(0, activity);
     saveActivities();
-    
+
     // Start timer for new activity
     _startActivityTimer(activity);
-    
+
     notifyListeners();
   }
 
   void removeActivity(ActiveActivity activity) {
     final activityKey = _getActivityKey(activity);
-    
+
     // Cancel timer if it exists
     if (_timers.containsKey(activityKey)) {
       _timers[activityKey]?.cancel();
       _timers.remove(activityKey);
       _pausedStates.remove(activityKey);
     }
-    
+
     activities.remove(activity);
     saveActivities();
     notifyListeners();
@@ -118,39 +124,39 @@ class SharedPrefActivities extends ChangeNotifier {
       log('Activity not found for update: ${activity.title}');
     }
   }
-  
+
   // New methods to manage timers
-  
+
   void _startActivityTimer(ActiveActivity activity) {
     final activityKey = _getActivityKey(activity);
-    
+
     // Set as not paused by default
     _pausedStates[activityKey] = false;
-    
+
     _timers[activityKey] = Timer.periodic(const Duration(seconds: 3), (timer) {
       // Find activity in the list to get current state
       final index = activities.indexWhere(
         (a) => a.title == activity.title && a.groupTitle == activity.groupTitle,
       );
-      
+
       if (index == -1) {
         // Activity not found, cancel timer
         timer.cancel();
         _timers.remove(activityKey);
         return;
       }
-      
+
       // Check if activity is paused
       if (_pausedStates[activityKey] == true) {
         return; // Skip updating if paused
       }
-      
+
       // Get current activity
       final currentActivity = activities[index];
-      
+
       // Update productive seconds
       int newProdSecs = currentActivity.prodSecs + 3;
-      
+
       // Create updated activity
       final updatedActivity = ActiveActivity(
         title: currentActivity.title,
@@ -160,37 +166,38 @@ class SharedPrefActivities extends ChangeNotifier {
         category: currentActivity.category,
         description: currentActivity.description,
         prodSecs: newProdSecs,
+        folderId: currentActivity.folderId,
       );
-      
+
       // Update in list
       activities[index] = updatedActivity;
-      
+
       // Save and notify
       saveActivities();
       notifyListeners();
     });
   }
-  
+
   void toggleActivityPauseState(ActiveActivity activity) {
     final activityKey = _getActivityKey(activity);
-    
+
     // Toggle pause state
     bool isPaused = !(_pausedStates[activityKey] ?? true);
     _pausedStates[activityKey] = isPaused;
-    
+
     // If timer doesn't exist and we're unpausing, start it
     if (!isPaused && !_timers.containsKey(activityKey)) {
       _startActivityTimer(activity);
     }
-    
+
     notifyListeners();
   }
-  
+
   bool isActivityPaused(ActiveActivity activity) {
     final activityKey = _getActivityKey(activity);
     return _pausedStates[activityKey] ?? true; // Default to paused
   }
-  
+
   // Cleanup method
   void disposeAllTimers() {
     for (var timer in _timers.values) {
@@ -217,7 +224,7 @@ class SharedPrefActivities extends ChangeNotifier {
     if (savedActivities != null) {
       activities =
           savedActivities.map((str) => ActiveActivity.fromStr(str)).toList();
-      
+
       // Start timers for all activities
       for (var activity in activities) {
         _startActivityTimer(activity);
@@ -554,8 +561,8 @@ class _ActivityCardState extends State<ActivityCard>
 
 class PausePlayButton extends StatelessWidget {
   final VoidCallback onPressed;
-  final ActiveActivity activity;  // Add parameter for activity
-  
+  final ActiveActivity activity; // Add parameter for activity
+
   const PausePlayButton({
     super.key,
     required this.onPressed,
@@ -567,12 +574,14 @@ class PausePlayButton extends StatelessWidget {
     // Get pause state from provider
     final provider = Provider.of<SharedPrefActivities>(context);
     final isPaused = provider.isActivityPaused(activity);
-    
+
     return Center(
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: onPressed,
-        child: Container(
+        child: AnimatedContainer(
+          width: isPaused ? 134 : 66,
+          duration: const Duration(milliseconds: 300),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
               border: Border.all(
@@ -595,10 +604,23 @@ class PausePlayButton extends StatelessWidget {
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(12)),
-          child: Icon(
-            isPaused ? Icons.play_arrow : Icons.pause,
-            color: Theme.of(context).colorScheme.onPrimaryContainer,
-            size: 32,
+          child: Row(
+            children: [
+              Icon(
+                isPaused ? Icons.play_arrow : Icons.pause,
+                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                size: 32,
+              ),
+              isPaused ? const SizedBox(width: 8) : const SizedBox(width: 0),
+              Text(
+                isPaused ? 'Resume' : '',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ),
       ),
