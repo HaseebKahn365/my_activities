@@ -9,8 +9,10 @@ import 'package:my_activities/screens/active_activities.dart';
 
 class AddActivityScreen extends StatefulWidget {
   final String? groupTitle;
-  const AddActivityScreen({super.key, this.groupTitle});
-  //there should be an optional param to indicate that i am adding a new activity from a group page this way the group title will be prefilled
+  final int? folderId; // Optional folder ID parameter
+
+  const AddActivityScreen({super.key, this.groupTitle, this.folderId});
+  // Updated to accept folderId as an optional parameter
 
   @override
   _AddActivityScreenState createState() => _AddActivityScreenState();
@@ -317,12 +319,53 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                         category: _selectedCategory,
                         description: _description,
                         prodSecs: 0,
+                        folderId:
+                            widget.folderId, // Assign folderId if provided
                       );
                       sharedPrefActivitiesProvider.addActivity(newActivity);
                       Navigator.pop(context);
                     }
                   },
                   label: const Text('Add Activity'),
+                ),
+
+                const SizedBox(height: 20.0),
+                //find and display the path of the activity
+
+                SizedBox(
+                  width: double.infinity,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Center(child: Text('Activity Path:')),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10.0),
+                        child: FutureBuilder(
+                          future: databaseActivitiesProvider
+                              .getFolderPathById(widget.folderId ?? 0),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const CircularProgressIndicator();
+                            } else if (snapshot.hasError) {
+                              return const Text('Error loading path');
+                            } else if (!snapshot.hasData ||
+                                snapshot.data!.isEmpty) {
+                              return const Text('root');
+                            } else {
+                              final folderPath = snapshot.data!;
+                              return Text(
+                                folderPath
+                                    .map((folder) => folder['name'])
+                                    .join(' / '),
+                                style: const TextStyle(fontSize: 16),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

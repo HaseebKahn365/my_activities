@@ -56,7 +56,7 @@ class ActiveActivity {
         parts[5].isNotEmpty ? parts[5].substring(0, parts[5].length - 1) : '';
     final prodSecs = int.parse(parts[6].replaceAll('@', '').trim());
     final folderId =
-        parts.length > 7 && parts[7] != 'null' ? int.parse(parts[7]) : null;
+        parts.length > 7 && parts[7] != 'null' ? int.tryParse(parts[7]) : null;
     return ActiveActivity(
       title: title,
       groupTitle: groupTitle,

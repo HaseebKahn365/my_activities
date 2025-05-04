@@ -99,6 +99,29 @@ class DatabaseActivities extends ChangeNotifier {
     );
   }
 
+  //method to find a folder path by its id
+  Future<List<Map<String, dynamic>>> getFolderPathById(int folderId) async {
+    final db = await database;
+    List<Map<String, dynamic>> folderPath = [];
+
+    // ignore: unnecessary_null_comparison
+    while (folderId != null) {
+      final List<Map<String, dynamic>> result = await db.query(
+        'folders',
+        where: 'id = ?',
+        whereArgs: [folderId],
+      );
+      if (result.isNotEmpty) {
+        folderPath.add(result.first);
+        folderId = result.first['parentFolderId'] ?? 'Root';
+      } else {
+        break;
+      }
+    }
+
+    return folderPath.reversed.toList(); // Reverse to get the correct order
+  }
+
   // Add a new activity to the database
   Future<void> doneActivity(DoneActivity activity) async {
     log('Description: ${activity.description}');
