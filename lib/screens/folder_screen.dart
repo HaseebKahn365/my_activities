@@ -101,7 +101,11 @@ we can add a popup menu to show the following options:
 
 */
 
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
+import 'package:my_activities/providers/providers.dart';
+import 'package:sqflite/sqflite.dart';
 
 class Folder {
   int id;
@@ -119,6 +123,34 @@ class Folder {
     required this.createdAt,
     required this.updatedAt,
   });
+}
+
+//creating a folder provider
+class FolderProvider with ChangeNotifier {
+  static Database? _db;
+
+  Future<void> loadDatabase() async {
+    databaseActivitiesProvider.database.then((db) {
+      _db = db;
+    });
+    notifyListeners();
+  }
+
+  //run test query to check if the database is loaded
+  Future<void> testQuery() async {
+    if (_db == null) {
+      throw Exception('Database is not loaded');
+    }
+    final List<Map<String, dynamic>> result =
+        await _db!.rawQuery('SELECT * FROM folders');
+    log('Test query result for folder: $result');
+
+    //test queryfor activities
+    final List<Map<String, dynamic>> result2 =
+        await _db!.rawQuery('SELECT * FROM activities');
+
+    log('Test query result for activities: $result2');
+  }
 }
 
 class FolderScreen extends StatelessWidget {

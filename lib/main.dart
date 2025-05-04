@@ -10,7 +10,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await sharedPrefActivitiesProvider.loadActivities();
   await databaseActivitiesProvider.loadFromDb();
-  // await folderProvider.init();
+  await folderProvider.loadDatabase();
+  await folderProvider.testQuery();
   runApp(const MyApp());
 }
 
