@@ -107,6 +107,7 @@ import 'package:flutter/material.dart';
 import 'package:my_activities/providers/providers.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:tap_debouncer/tap_debouncer.dart';
 
 class Folder {
   int id;
@@ -134,10 +135,55 @@ class FolderProvider with ChangeNotifier {
   final List<Folder> rootFolders = [];
   final List<DoneActivity> rootActivities = [];
 
+  //!current folder stuff:
+  Folder? currentFolder;
+  List<Folder> subFoldersOfCurrentFolder = [];
+
   Future<void> loadDatabase() async {
     databaseActivitiesProvider.database.then((db) {
       _db = db;
     });
+    notifyListeners();
+  }
+
+  //method to set details of the current folder
+  Future<void> setCurrentFolderDetails(int folderId) async {
+    if (_db == null) {
+      throw Exception('Database is not loaded');
+    }
+    final List<Map<String, dynamic>> maps = await _db!.query(
+      'folders',
+      where: 'id = ?',
+      whereArgs: [folderId],
+    );
+    if (maps.isNotEmpty) {
+      currentFolder = Folder(
+        id: maps[0]['id'],
+        name: maps[0]['name'],
+        parentFolderId: maps[0]['parentFolderId'],
+        isPinned: maps[0]['isPinned'] == 1,
+        createdAt: DateTime.parse(maps[0]['createdAt']),
+        updatedAt: DateTime.parse(maps[0]['updatedAt']),
+      );
+    }
+
+    // Load subfolders of the current folder
+    final List<Map<String, dynamic>> subMaps = await _db!.query(
+      'folders',
+      where: 'parentFolderId = ?',
+      whereArgs: [currentFolder!.id],
+    );
+    subFoldersOfCurrentFolder.clear();
+    for (var map in subMaps) {
+      subFoldersOfCurrentFolder.add(Folder(
+        id: map['id'],
+        name: map['name'],
+        parentFolderId: map['parentFolderId'],
+        isPinned: map['isPinned'] == 1,
+        createdAt: DateTime.parse(map['createdAt']),
+        updatedAt: DateTime.parse(map['updatedAt']),
+      ));
+    }
     notifyListeners();
   }
 
@@ -235,7 +281,7 @@ class FolderScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Folders'),
+        title: const Text('Root'),
         actions: [
           // Adding folder button
           IconButton(
@@ -273,11 +319,26 @@ class FolderScreen extends StatelessWidget {
                   itemCount: folderProvider.rootFolders.length,
                   itemBuilder: (context, index) {
                     final folder = folderProvider.rootFolders[index];
-                    return ListTile(
-                      title: Text(folder.name),
-                      trailing: const Icon(Icons.folder),
-                      onTap: () {
-                        // Navigate to folder details
+                    return TapDebouncer(
+                      onTap: () async {
+                        final folderProvider =
+                            Provider.of<FolderProvider>(context, listen: false);
+                        await folderProvider.setCurrentFolderDetails(folder.id);
+                        //navigating to the SubFolderScreen
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const SubFolderScreen(),
+                          ),
+                        );
+                      },
+                      builder: (BuildContext context, TapDebouncerFunc? onTap) {
+                        log('Debouncer called: $onTap');
+                        return ListTile(
+                          title: Text(folder.name),
+                          trailing: const Icon(Icons.folder),
+                          onTap: onTap,
+                        );
                       },
                     );
                   },
@@ -303,12 +364,13 @@ class FolderScreen extends StatelessWidget {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Add folder or activity
-        },
-        child: const Icon(Icons.add),
-      ),
     );
   }
 }
+
+
+//Navigate to folder screen where we can add activities to the folder and also get in deeper. it should be similar to the folder screen
+
+
+
+
