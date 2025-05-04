@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:my_activities/screens/active_activities.dart';
+import 'package:my_activities/screens/folder_screen.dart';
 import 'package:my_activities/screens/groups.dart';
 import 'package:my_activities/screens/summary.dart';
 import 'package:provider/provider.dart';
@@ -43,6 +44,10 @@ class _MyHomePageState extends State<MyHomePage> {
         return const DoneActivitiesScreen();
       case 2:
         return const SummaryScreen();
+
+      //screen for folders
+      case 3:
+        return const FolderScreen();
       default:
         return const Text('Unknown');
     }
@@ -56,6 +61,8 @@ class _MyHomePageState extends State<MyHomePage> {
         return const Text('Groups');
       case 2:
         return const Text('Summary');
+      case 3:
+        return const Text('Folders');
       default:
         return const Text('Unknown');
     }
@@ -73,7 +80,9 @@ class _MyHomePageState extends State<MyHomePage> {
             actions: [
 //lets add a switch for dark and light mode
               IconButton(
-                icon: Icon(themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode),
+                icon: Icon(themeProvider.isDarkMode
+                    ? Icons.light_mode
+                    : Icons.dark_mode),
                 onPressed: () {
                   themeProvider.toggleTheme();
                 },
@@ -138,6 +147,11 @@ class _MyHomePageState extends State<MyHomePage> {
                 icon: Icon(Icons.summarize_outlined),
                 selectedIcon: Icon(Icons.summarize),
                 label: 'Summary',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.folder_outlined),
+                selectedIcon: Icon(Icons.folder),
+                label: 'Folders',
               ),
             ],
           ),
