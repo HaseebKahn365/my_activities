@@ -105,6 +105,7 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:my_activities/providers/providers.dart';
+import 'package:provider/provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 class Folder {
@@ -129,6 +130,10 @@ class Folder {
 class FolderProvider with ChangeNotifier {
   static Database? _db;
 
+  //!vars for root folder and activities
+  final List<Folder> rootFolders = [];
+  final List<DoneActivity> rootActivities = [];
+
   Future<void> loadDatabase() async {
     databaseActivitiesProvider.database.then((db) {
       _db = db;
@@ -136,20 +141,90 @@ class FolderProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  //run test query to check if the database is loaded
-  Future<void> testQuery() async {
+  //creating a method to add folder to root directory
+  Future<void> addFolderToRoot(String name) async {
     if (_db == null) {
       throw Exception('Database is not loaded');
     }
-    final List<Map<String, dynamic>> result =
-        await _db!.rawQuery('SELECT * FROM folders');
-    log('Test query result for folder: $result');
+    final folder = Folder(
+      id: rootFolders.length + 1,
+      name: name,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    await _db!.insert('folders', {
+      'name': folder.name,
+      'parentFolderId': folder.parentFolderId,
+      'isPinned': folder.isPinned ? 1 : 0,
+      'createdAt': folder.createdAt.toIso8601String(),
+      'updatedAt': folder.updatedAt.toIso8601String(),
+    });
 
-    //test queryfor activities
-    final List<Map<String, dynamic>> result2 =
-        await _db!.rawQuery('SELECT * FROM activities');
+    log('Folder added: ${folder.name}');
 
-    log('Test query result for activities: $result2');
+    rootFolders.add(folder);
+    notifyListeners();
+  }
+
+  //method to add activity to root:
+  Future<void> addActivityToRoot(int activityId) async {
+    if (_db == null) {
+      throw Exception('Database is not loaded');
+    }
+    await _db!.update(
+      'activities',
+      {'folderId': null},
+      where: 'id = ?',
+      whereArgs: [activityId],
+    );
+    notifyListeners();
+  }
+
+  //methods to load root datas
+  Future<void> loadRootFolders() async {
+    if (_db == null) {
+      throw Exception('Database is not loaded');
+    }
+    final List<Map<String, dynamic>> maps = await _db!.query('folders');
+    rootFolders.clear();
+    for (var map in maps) {
+      rootFolders.add(Folder(
+        id: map['id'],
+        name: map['name'],
+        parentFolderId: map['parentFolderId'],
+        isPinned: map['isPinned'] == 1,
+        createdAt: DateTime.parse(map['createdAt']),
+        updatedAt: DateTime.parse(map['updatedAt']),
+      ));
+    }
+    notifyListeners();
+  }
+
+  //method to load root activities:
+  Future<void> loadRootActivities() async {
+    if (_db == null) {
+      throw Exception('Database is not loaded');
+    }
+    final List<Map<String, dynamic>> maps =
+        await _db!.query('activities', where: 'folderId IS NULL');
+    rootActivities.clear();
+    for (var map in maps) {
+      rootActivities.add(DoneActivity(
+        title: map['title'],
+        groupTitle: map['groupTitle'],
+        startTime: DateTime.parse(map['startTime']),
+        estimatedEndTime: DateTime.parse(map['estimatedEndTime']),
+        finishTime: DateTime.parse(map['finishTime']),
+        category: Category.values.firstWhere(
+          (e) => e.name == map['category'],
+          orElse: () => Category.w,
+        ),
+        description: map['description'],
+        prodSecs: map['prodSecs'] ?? 0,
+        folderId: map['folderId'],
+      ));
+    }
+    notifyListeners();
   }
 }
 
@@ -158,6 +233,82 @@ class FolderScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Placeholder();
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Folders'),
+        actions: [
+          // Adding folder button
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () {
+              // Show dialog to add folder
+              showDialog(
+                context: context,
+                builder: (context) {
+                  return AlertDialog(
+                    title: const Text('Add Folder'),
+                    content: TextField(
+                      decoration:
+                          const InputDecoration(hintText: 'Folder Name'),
+                      onSubmitted: (value) {
+                        final folderProvider =
+                            Provider.of<FolderProvider>(context, listen: false);
+                        folderProvider.addFolderToRoot(value);
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      body: Consumer<FolderProvider>(
+        builder: (context, folderProvider, child) {
+          return Column(
+            children: [
+              Expanded(
+                child: ListView.builder(
+                  itemCount: folderProvider.rootFolders.length,
+                  itemBuilder: (context, index) {
+                    final folder = folderProvider.rootFolders[index];
+                    return ListTile(
+                      title: Text(folder.name),
+                      trailing: const Icon(Icons.folder),
+                      onTap: () {
+                        // Navigate to folder details
+                      },
+                    );
+                  },
+                ),
+              ),
+              const Divider(),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: folderProvider.rootActivities.length,
+                  itemBuilder: (context, index) {
+                    final activity = folderProvider.rootActivities[index];
+                    return ListTile(
+                      title: Text(activity.title),
+                      trailing: const Icon(Icons.check_circle),
+                      onTap: () {
+                        // Show activity details
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // Add folder or activity
+        },
+        child: const Icon(Icons.add),
+      ),
+    );
   }
 }
