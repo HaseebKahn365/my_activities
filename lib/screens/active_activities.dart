@@ -68,45 +68,136 @@ class ActiveActivity {
 class SharedPrefActivities extends ChangeNotifier {
   List<ActiveActivity> activities = [];
   SharedPreferences? _prefs;
+  // Add a map to store timers for each activity
+  final Map<String, Timer> _timers = {};
+  // Track paused status for each activity
+  final Map<String, bool> _pausedStates = {};
+
+  int get count => activities.length;  // Add back the count getter
+
+  // Helper method to get a unique key for each activity
+  String _getActivityKey(ActiveActivity activity) {
+    return '${activity.title}_${activity.groupTitle}';
+  }
 
   void addActivity(ActiveActivity activity) {
-    // activities.add(activity);insert the activity to the front
-    //remove the spacing on the right and left of the group title to avoid creation of new groups if the titles are the same
-    log('title length of group before trim: ${activity.title.length}');
-    log('title: ${activity.title}');
     activity.groupTitle = activity.groupTitle.trim();
-    log('title length of group after trim: ${activity.title.length}');
-    log('title: ${activity.title}');
-
     activities.insert(0, activity);
     saveActivities();
+    
+    // Start timer for new activity
+    _startActivityTimer(activity);
+    
     notifyListeners();
   }
 
   void removeActivity(ActiveActivity activity) {
+    final activityKey = _getActivityKey(activity);
+    
+    // Cancel timer if it exists
+    if (_timers.containsKey(activityKey)) {
+      _timers[activityKey]?.cancel();
+      _timers.remove(activityKey);
+      _pausedStates.remove(activityKey);
+    }
+    
     activities.remove(activity);
     saveActivities();
     notifyListeners();
   }
 
-  //update activity method after every 3 seconds and save to shared preferences
-
   void updateActivity(ActiveActivity activity) {
-    //match based on the title and group title
     final index = activities.indexWhere(
       (a) => a.title == activity.title && a.groupTitle == activity.groupTitle,
     );
     if (index != -1) {
       activities[index] = activity;
       saveActivities();
-      log('Activity updated: ${activity.title}');
       notifyListeners();
     } else {
       log('Activity not found for update: ${activity.title}');
     }
   }
-
-  int get count => activities.length;
+  
+  // New methods to manage timers
+  
+  void _startActivityTimer(ActiveActivity activity) {
+    final activityKey = _getActivityKey(activity);
+    
+    // Set as not paused by default
+    _pausedStates[activityKey] = false;
+    
+    _timers[activityKey] = Timer.periodic(const Duration(seconds: 3), (timer) {
+      // Find activity in the list to get current state
+      final index = activities.indexWhere(
+        (a) => a.title == activity.title && a.groupTitle == activity.groupTitle,
+      );
+      
+      if (index == -1) {
+        // Activity not found, cancel timer
+        timer.cancel();
+        _timers.remove(activityKey);
+        return;
+      }
+      
+      // Check if activity is paused
+      if (_pausedStates[activityKey] == true) {
+        return; // Skip updating if paused
+      }
+      
+      // Get current activity
+      final currentActivity = activities[index];
+      
+      // Update productive seconds
+      int newProdSecs = currentActivity.prodSecs + 3;
+      
+      // Create updated activity
+      final updatedActivity = ActiveActivity(
+        title: currentActivity.title,
+        groupTitle: currentActivity.groupTitle,
+        startTime: currentActivity.startTime,
+        estimatedEndTime: currentActivity.estimatedEndTime,
+        category: currentActivity.category,
+        description: currentActivity.description,
+        prodSecs: newProdSecs,
+      );
+      
+      // Update in list
+      activities[index] = updatedActivity;
+      
+      // Save and notify
+      saveActivities();
+      notifyListeners();
+    });
+  }
+  
+  void toggleActivityPauseState(ActiveActivity activity) {
+    final activityKey = _getActivityKey(activity);
+    
+    // Toggle pause state
+    bool isPaused = !(_pausedStates[activityKey] ?? true);
+    _pausedStates[activityKey] = isPaused;
+    
+    // If timer doesn't exist and we're unpausing, start it
+    if (!isPaused && !_timers.containsKey(activityKey)) {
+      _startActivityTimer(activity);
+    }
+    
+    notifyListeners();
+  }
+  
+  bool isActivityPaused(ActiveActivity activity) {
+    final activityKey = _getActivityKey(activity);
+    return _pausedStates[activityKey] ?? true; // Default to paused
+  }
+  
+  // Cleanup method
+  void disposeAllTimers() {
+    for (var timer in _timers.values) {
+      timer.cancel();
+    }
+    _timers.clear();
+  }
 
   // Optional: Method to simulate saving to shared preferences by converting to strings
   Future<void> saveActivities() async {
@@ -126,6 +217,11 @@ class SharedPrefActivities extends ChangeNotifier {
     if (savedActivities != null) {
       activities =
           savedActivities.map((str) => ActiveActivity.fromStr(str)).toList();
+      
+      // Start timers for all activities
+      for (var activity in activities) {
+        _startActivityTimer(activity);
+      }
     }
 
     notifyListeners();
@@ -239,18 +335,17 @@ class ActivityCard extends StatefulWidget {
 
 class _ActivityCardState extends State<ActivityCard>
     with SingleTickerProviderStateMixin {
-  Timer? _timer;
   late AnimationController _progressController;
   late Animation<double> _progressAnimation;
   double _targetProgress = 0.0;
-  final int neeww = 32;
+  Timer? _uiUpdateTimer;
 
   @override
   void initState() {
     super.initState();
     _progressController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 750), // Smooth animation duration
+      duration: const Duration(milliseconds: 750),
     );
 
     _progressAnimation = Tween<double>(begin: 0, end: 0).animate(
@@ -260,38 +355,19 @@ class _ActivityCardState extends State<ActivityCard>
       ),
     );
 
-    _startTimer();
+    // Only update the UI, not the actual timer logic
+    _uiUpdateTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        _updateProgress();
+      }
+    });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _uiUpdateTimer?.cancel();
     _progressController.dispose();
     super.dispose();
-  }
-
-  void _startTimer() {
-    log('Timer started for activity: ${widget.activity.title}');
-    _updateProgress();
-    _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      _updateProgress();
-      // Update the productive seconds by incrementing by 3 seconds
-      int newProdSecs = widget.activity.prodSecs + 3;
-
-      log('New productive seconds: $newProdSecs');
-      // Update the activity in the provider
-      final updatedActivity = ActiveActivity(
-        title: widget.activity.title,
-        groupTitle: widget.activity.groupTitle,
-        startTime: widget.activity.startTime,
-        estimatedEndTime: widget.activity.estimatedEndTime,
-        category: widget.activity.category,
-        description: widget.activity.description,
-        prodSecs: newProdSecs,
-      );
-      Provider.of<SharedPrefActivities>(context, listen: false)
-          .updateActivity(updatedActivity);
-    });
   }
 
   void _updateProgress() {
@@ -322,12 +398,9 @@ class _ActivityCardState extends State<ActivityCard>
   }
 
   void _handlePauseTimer() {
-    if (_timer != null) {
-      _timer!.cancel();
-      _timer = null;
-    } else {
-      _startTimer();
-    }
+    // Use provider to toggle pause state
+    final provider = Provider.of<SharedPrefActivities>(context, listen: false);
+    provider.toggleActivityPauseState(widget.activity);
   }
 
   void _handleDone() {
@@ -440,6 +513,7 @@ class _ActivityCardState extends State<ActivityCard>
 
                 PausePlayButton(
                   onPressed: _handlePauseTimer,
+                  activity: widget.activity,
                 ),
 
                 const SizedBox(height: 16),
@@ -478,32 +552,26 @@ class _ActivityCardState extends State<ActivityCard>
   }
 }
 
-class PausePlayButton extends StatefulWidget {
+class PausePlayButton extends StatelessWidget {
   final VoidCallback onPressed;
+  final ActiveActivity activity;  // Add parameter for activity
+  
   const PausePlayButton({
     super.key,
     required this.onPressed,
+    required this.activity,
   });
 
   @override
-  State<PausePlayButton> createState() => _PausePlayButtonState();
-}
-
-class _PausePlayButtonState extends State<PausePlayButton> {
-  bool isPaused = false;
-  @override
   Widget build(BuildContext context) {
+    // Get pause state from provider
+    final provider = Provider.of<SharedPrefActivities>(context);
+    final isPaused = provider.isActivityPaused(activity);
+    
     return Center(
-      //a stylish pause.play button
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          setState(() {
-            isPaused = !isPaused;
-            log('isPaused: $isPaused');
-          });
-          widget.onPressed();
-        },
+        onTap: onPressed,
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -522,7 +590,6 @@ class _PausePlayButtonState extends State<PausePlayButton> {
                     : [
                         Theme.of(context).colorScheme.surfaceContainerHighest,
                         Theme.of(context).colorScheme.surfaceContainerLowest,
-                        // Theme.of(context).colorScheme.primaryContainer
                       ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
